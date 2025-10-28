@@ -27,8 +27,8 @@ setup(
     description="Deterministic, policy-driven memory management for AI agents",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    author="Memoric Contributors",
-    url="https://github.com/your-org/memoric",
+    author="Muthanna Alfaris",
+    url="https://github.com/cyberbeamhq/memoric",
     license="MIT",
     packages=find_packages(exclude=("tests", "examples")),
     include_package_data=True,
@@ -43,8 +43,8 @@ setup(
         "Topic :: Software Development :: Libraries",
     ],
     project_urls={
-        "Source": "https://github.com/your-org/memoric",
-        "Tracker": "https://github.com/your-org/memoric/issues",
+        "Source": "https://github.com/cyberbeamhq/memoric",
+        "Tracker": "https://github.com/cyberbeamhq/memoric/issues",
     },
 )
 

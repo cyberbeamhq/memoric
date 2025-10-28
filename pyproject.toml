@@ -31,7 +31,7 @@ version = "0.0.1"
 description = "Deterministic, policy-driven memory management for AI agents"
 readme = "README.md"
 requires-python = ">=3.9"
-authors = [{ name = "Memoric Contributors" }]
+authors = [{ name = "Muthanna Alfaris" }]
 license = { text = "MIT" }
 keywords = ["AI", "agents", "memory", "framework", "retrieval"]
 classifiers = [

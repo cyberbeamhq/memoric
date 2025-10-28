@@ -41,7 +41,7 @@ classifiers = [
 ]
 
 [project.scripts]
-memoric = "memoric.memoric_cli:main"
+memoric = "memoric_cli:main"
 
 [project.urls]
 Homepage = "https://github.com/cyberbeamhq/memoric"

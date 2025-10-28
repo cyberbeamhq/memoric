@@ -11,7 +11,9 @@ from ...core.memory_manager import Memoric
 
 
 class MemoricMemory(BaseChatMemory):  # type: ignore[misc]
-    def __init__(self, *, user_id: str, thread_id: str, memoric: Optional[Memoric] = None, k: int = 10) -> None:
+    def __init__(
+        self, *, user_id: str, thread_id: str, memoric: Optional[Memoric] = None, k: int = 10
+    ) -> None:
         super().__init__()
         self.user_id = user_id
         self.thread_id = thread_id
@@ -35,5 +37,3 @@ class MemoricMemory(BaseChatMemory):  # type: ignore[misc]
     def clear(self) -> None:  # type: ignore[override]
         # no-op; clearing would be destructive to Memoric's store
         return None
-
-

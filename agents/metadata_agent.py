@@ -24,9 +24,24 @@ class MetadataAgent:
             except Exception:
                 self.client = None
 
-    def extract(self, *, text: str, user_id: Optional[str] = None, thread_id: Optional[str] = None, session_id: Optional[str] = None) -> Dict[str, Any]:
+    def extract(
+        self,
+        *,
+        text: str,
+        user_id: Optional[str] = None,
+        thread_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
         if not text:
-            return {"topic": "", "category": "", "entities": [], "importance": "low", "user_id": user_id, "thread_id": thread_id, "session_id": session_id}
+            return {
+                "topic": "",
+                "category": "",
+                "entities": [],
+                "importance": "low",
+                "user_id": user_id,
+                "thread_id": thread_id,
+                "session_id": session_id,
+            }
 
         if self.client is None:
             # Fallback heuristic
@@ -74,5 +89,3 @@ class MetadataAgent:
             "thread_id": thread_id,
             "session_id": session_id,
         }
-
-

@@ -10,6 +10,7 @@ Demonstrates:
 
 Run with: python examples/demo_clustering_scoring.py
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -86,15 +87,13 @@ def main() -> None:
     print(f"\n3. Demonstrating custom scoring rules...")
     # Add custom rule to boost specific entities
     retriever = mem.retriever
-    retriever.scorer.add_rule(
-        create_entity_match_rule(["payment", "refund"], boost_amount=15.0)
-    )
+    retriever.scorer.add_rule(create_entity_match_rule(["payment", "refund"], boost_amount=15.0))
 
     # Retrieve again with custom rule active
     results_custom = mem.retrieve(user_id=user_id, top_k=5)
     print(f"  Top 5 with entity boost (payment, refund):")
     for i, r in enumerate(results_custom, 1):
-        content = r['content'][:50]
+        content = r["content"][:50]
         score = r.get("_score", 0)
         print(f"  {i}. Score: {score:3} | {content}...")
 

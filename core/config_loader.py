@@ -41,7 +41,9 @@ class ConfigLoader:
         user_path: Optional[Path] = None,
         runtime_overrides: Optional[Dict[str, Any]] = None,
     ) -> None:
-        self.default_path = default_path or Path(__file__).resolve().parents[1] / "config" / "default.yaml"
+        self.default_path = (
+            default_path or Path(__file__).resolve().parents[1] / "config" / "default.yaml"
+        )
         self.user_path = user_path
         self.runtime_overrides = runtime_overrides or {}
 
@@ -52,5 +54,3 @@ class ConfigLoader:
         if self.runtime_overrides:
             merged = _deep_merge(merged, self.runtime_overrides)
         return merged
-
-

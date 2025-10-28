@@ -3,7 +3,9 @@ Memoric SDK Quick Start Guide
 
 This example demonstrates basic usage of the Memoric SDK for memory management.
 """
+
 from memoric import Memoric
+
 
 def main():
     # Initialize Memoric (uses default config)

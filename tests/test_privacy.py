@@ -26,5 +26,3 @@ def test_shared_namespace_opt_in():
     # By default, allow_shared_namespace is False, so namespace has no effect
     r = m.retrieve(user_id="u1", scope="user", namespace=ns)
     assert any(r1.get("user_id") == "u1" for r1 in r)
-
-

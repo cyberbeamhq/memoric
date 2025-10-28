@@ -7,5 +7,3 @@ def test_import_package():
 
 def test_basic_truth():
     assert True
-
-

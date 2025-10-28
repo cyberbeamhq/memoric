@@ -34,5 +34,3 @@ def test_save_and_retrieve_sqlite_fallback(monkeypatch):
     assert isinstance(mid, int)
     results = m.retrieve(user_id="u1", thread_id="th1", top_k=3)
     assert len(results) >= 1
-
-

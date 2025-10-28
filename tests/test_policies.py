@@ -18,5 +18,3 @@ def test_run_policies_migrates(monkeypatch):
     result = m.run_policies()
     assert result["migrated"] >= 1
     assert "by_tier" in result
-
-

@@ -3,7 +3,23 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional
 
-from sqlalchemy import JSON, Column, DateTime, Integer, MetaData, String, Table, Text, and_, create_engine, func, insert, or_, select, update
+from sqlalchemy import (
+    JSON,
+    Column,
+    DateTime,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    Text,
+    and_,
+    create_engine,
+    func,
+    insert,
+    or_,
+    select,
+    update,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Engine
 from sqlalchemy.pool import QueuePool
@@ -13,7 +29,13 @@ DEFAULT_TABLE_NAME = "memories"
 
 
 class PostgresConnector:
-    def __init__(self, dsn: str, table_name: str = DEFAULT_TABLE_NAME, pool_size: int = 5, max_overflow: int = 10) -> None:
+    def __init__(
+        self,
+        dsn: str,
+        table_name: str = DEFAULT_TABLE_NAME,
+        pool_size: int = 5,
+        max_overflow: int = 10,
+    ) -> None:
         self.dsn = dsn
         self.table_name = table_name
         self.engine: Engine = create_engine(
@@ -38,7 +60,13 @@ class PostgresConnector:
             Column("related_threads", JSONB().with_variant(JSON, "sqlite"), nullable=True),
             Column("summarized", Integer, nullable=True),  # 1=true, 0/NULL=false
             Column("created_at", DateTime, nullable=False, default=datetime.utcnow),
-            Column("updated_at", DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow),
+            Column(
+                "updated_at",
+                DateTime,
+                nullable=False,
+                default=datetime.utcnow,
+                onupdate=datetime.utcnow,
+            ),
         )
         # clusters table
         self.clusters_table = Table(
@@ -68,17 +96,21 @@ class PostgresConnector:
         namespace: Optional[str] = None,
     ) -> int:
         with self.engine.begin() as conn:
-            stmt = insert(self.table).values(
-                user_id=user_id,
-                namespace=namespace,
-                thread_id=thread_id,
-                content=content,
-                tier=tier,
-                score=score,
-                metadata=metadata,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
-            ).returning(self.table.c.id)
+            stmt = (
+                insert(self.table)
+                .values(
+                    user_id=user_id,
+                    namespace=namespace,
+                    thread_id=thread_id,
+                    content=content,
+                    tier=tier,
+                    score=score,
+                    metadata=metadata,
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                )
+                .returning(self.table.c.id)
+            )
             result = conn.execute(stmt)
             new_id = result.scalar_one()
             return int(new_id)
@@ -111,11 +143,15 @@ class PostgresConnector:
             if summarized:
                 conditions.append((self.table.c.summarized == 1))
             else:
-                conditions.append((self.table.c.summarized.is_(None)) | (self.table.c.summarized == 0))
+                conditions.append(
+                    (self.table.c.summarized.is_(None)) | (self.table.c.summarized == 0)
+                )
         if related_threads_any_of:
             if self.engine.url.get_backend_name().startswith("postgres"):
                 # OR of JSONB array contains checks
-                contains_clauses = [self.table.c.related_threads.contains([t]) for t in related_threads_any_of]
+                contains_clauses = [
+                    self.table.c.related_threads.contains([t]) for t in related_threads_any_of
+                ]
                 if contains_clauses:
                     conditions.append(or_(*contains_clauses))
             else:
@@ -153,16 +189,22 @@ class PostgresConnector:
             return int(result.rowcount or 0)
 
     # Cluster CRUD
-    def upsert_cluster(self, *, topic: str, category: str, memory_ids: List[int], summary: str = "") -> int:
+    def upsert_cluster(
+        self, *, topic: str, category: str, memory_ids: List[int], summary: str = ""
+    ) -> int:
         with self.engine.begin() as conn:
             # naive: insert new cluster
-            stmt = insert(self.clusters_table).values(
-                topic=topic,
-                category=category,
-                memory_ids=memory_ids,
-                summary=summary,
-                created_at=datetime.utcnow(),
-            ).returning(self.clusters_table.c.cluster_id)
+            stmt = (
+                insert(self.clusters_table)
+                .values(
+                    topic=topic,
+                    category=category,
+                    memory_ids=memory_ids,
+                    summary=summary,
+                    created_at=datetime.utcnow(),
+                )
+                .returning(self.clusters_table.c.cluster_id)
+            )
             result = conn.execute(stmt)
             cid = result.scalar_one()
             return int(cid)
@@ -217,7 +259,9 @@ class PostgresConnector:
             result = conn.execute(stmt)
             return int(result.rowcount or 0)
 
-    def distinct_threads(self, *, user_id: Optional[str] = None, tier: Optional[str] = None, limit: int = 1000) -> List[str]:
+    def distinct_threads(
+        self, *, user_id: Optional[str] = None, tier: Optional[str] = None, limit: int = 1000
+    ) -> List[str]:
         stmt = select(self.table.c.thread_id).distinct()
         conditions: List[Any] = []
         if user_id:
@@ -235,14 +279,18 @@ class PostgresConnector:
         # Find threads for topic and return list; client can store into related_threads
         stmt = (
             select(self.table.c.thread_id)
-            .where(and_(self.table.c.user_id == user_id, self.table.c.metadata["topic"].as_string() == topic))
+            .where(
+                and_(
+                    self.table.c.user_id == user_id,
+                    self.table.c.metadata["topic"].as_string() == topic,
+                )
+            )
             .distinct()
             .limit(limit)
         )
         with self.engine.connect() as conn:
             rows = conn.execute(stmt).all()
             return [r[0] for r in rows if r[0]]
-
 
     # Policy helpers
     def count_by_tier(self) -> Dict[str, int]:
@@ -251,7 +299,9 @@ class PostgresConnector:
             rows = conn.execute(stmt).all()
             return {str(tier): int(count) for tier, count in rows}
 
-    def find_older_than(self, *, days: int, from_tier: Optional[str] = None, limit: int = 1000) -> List[Dict[str, Any]]:
+    def find_older_than(
+        self, *, days: int, from_tier: Optional[str] = None, limit: int = 1000
+    ) -> List[Dict[str, Any]]:
         cutoff = datetime.utcnow() - timedelta(days=days)
         conditions = [self.table.c.updated_at < cutoff]
         if from_tier:
@@ -260,6 +310,3 @@ class PostgresConnector:
         with self.engine.connect() as conn:
             rows = conn.execute(stmt).mappings().all()
             return [dict(r) for r in rows]
-
-
-

@@ -87,7 +87,9 @@ class ScoringEngine:
 
         meta = memory.get("metadata") or {}
         importance_text = str(meta.get("importance", "medium")).lower()
-        importance_level = {"low": 3, "medium": 5, "high": 8, "critical": 10}.get(importance_text, 5)
+        importance_level = {"low": 3, "medium": 5, "high": 8, "critical": 10}.get(
+            importance_text, 5
+        )
 
         created_at = memory.get("created_at")
         last_seen_at = memory.get("updated_at") or created_at
@@ -97,7 +99,9 @@ class ScoringEngine:
         age_seconds = 0.0
         if last_seen_at is not None:
             age_seconds = max((now - last_seen_at).total_seconds(), 0.0)
-        recency_norm = 1.0 - _normalize(age_seconds, 0.0, float(self.cfg.decay_days) * 24.0 * 3600.0)
+        recency_norm = 1.0 - _normalize(
+            age_seconds, 0.0, float(self.cfg.decay_days) * 24.0 * 3600.0
+        )
 
         importance_norm = _normalize(float(importance_level), 0.0, 10.0)
         repetition_norm = 1.0 - _normalize(float(seen_count), 0.0, 20.0)
@@ -119,6 +123,3 @@ class ScoringEngine:
                 continue
         final = max(0.0, min(100.0, base_score + bonus))
         return int(round(final))
-
-
-

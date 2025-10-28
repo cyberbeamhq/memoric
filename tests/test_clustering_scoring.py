@@ -9,6 +9,7 @@ Tests cover:
 - Custom scoring rules
 - CLI cluster commands
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta

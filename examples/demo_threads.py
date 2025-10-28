@@ -13,7 +13,12 @@ def main() -> None:
     m.save(user_id="u_sales", thread_id=t2, content="Sales planning for Q2 targets and KPIs")
 
     print("Thread scope (t1):")
-    print([r.get("content") for r in m.retrieve(user_id="u_sales", thread_id=t1, scope="thread", top_k=5)])
+    print(
+        [
+            r.get("content")
+            for r in m.retrieve(user_id="u_sales", thread_id=t1, scope="thread", top_k=5)
+        ]
+    )
 
     print("User scope:")
     print([r.get("content") for r in m.retrieve(user_id="u_sales", scope="user", top_k=5)])
@@ -24,5 +29,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

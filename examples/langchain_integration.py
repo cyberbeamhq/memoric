@@ -6,7 +6,9 @@ Demonstrates how to use Memoric as a memory backend for LangChain.
 Prerequisites:
     pip install langchain openai
 """
+
 from memoric.integrations.langchain_adapter import MemoricChatMemory, create_langchain_memory
+
 
 def example_basic_memory():
     """Example 1: Basic LangChain memory with Memoric backend."""
@@ -158,25 +160,26 @@ def example_multi_user():
 
 
 def main():
-    print("="*60)
+    print("=" * 60)
     print("  Memoric + LangChain Integration Examples")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
 
     try:
         import langchain
+
         print(f"LangChain version: {langchain.__version__}\n")
 
         example_basic_memory()
-        print("\n" + "-"*60 + "\n")
+        print("\n" + "-" * 60 + "\n")
 
         example_with_metadata_filtering()
-        print("\n" + "-"*60 + "\n")
+        print("\n" + "-" * 60 + "\n")
 
         example_multi_user()
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("  All examples complete!")
-        print("="*60)
+        print("=" * 60)
 
     except ImportError:
         print("LangChain is not installed.")

@@ -48,7 +48,6 @@ setup(
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
         "Topic :: Software Development :: Libraries",
-        
     ],
     project_urls={
         "Source": "https://github.com/cyberbeamhq/memoric",
@@ -58,7 +57,5 @@ setup(
         "console_scripts": [
             "memoric=memoric_cli:main",
         ]
-    },    
+    },
 )
-
-

@@ -10,6 +10,7 @@ Tests cover:
 - Dialect-aware query behavior
 - Migration CLI commands
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -41,15 +42,13 @@ def postgres_config() -> Dict[str, Any]:
 def sqlite_config() -> Dict[str, Any]:
     """Provide test configuration for SQLite."""
     return {
-        "database": {
-            "dsn": "sqlite:///test_memoric.db"
-        },
+        "database": {"dsn": "sqlite:///test_memoric.db"},
         "storage": {
             "tiers": [
                 {"name": "short_term", "expiry_days": 7},
                 {"name": "long_term"},
             ]
-        }
+        },
     }
 
 
@@ -82,6 +81,7 @@ def test_sqlite_warning_logged(sqlite_config: Dict[str, Any], monkeypatch, caplo
     monkeypatch.setenv("OPENAI_API_KEY", "")
 
     import logging
+
     caplog.set_level(logging.WARNING)
 
     mem = Memoric(overrides=sqlite_config)
@@ -100,18 +100,9 @@ def test_python_level_json_containment_filter(sqlite_config: Dict[str, Any], mon
 
     # Create test data
     test_records = [
-        {
-            "id": 1,
-            "metadata": {"topic": "billing", "category": "support", "priority": "high"}
-        },
-        {
-            "id": 2,
-            "metadata": {"topic": "shipping", "category": "support", "priority": "low"}
-        },
-        {
-            "id": 3,
-            "metadata": {"topic": "billing", "category": "finance", "priority": "medium"}
-        },
+        {"id": 1, "metadata": {"topic": "billing", "category": "support", "priority": "high"}},
+        {"id": 2, "metadata": {"topic": "shipping", "category": "support", "priority": "low"}},
+        {"id": 3, "metadata": {"topic": "billing", "category": "finance", "priority": "medium"}},
     ]
 
     # Test exact match
@@ -144,15 +135,12 @@ def test_python_level_json_containment_nested(sqlite_config: Dict[str, Any], mon
             "id": 1,
             "metadata": {
                 "customer": {"name": "John", "tier": "premium"},
-                "tags": ["urgent", "billing"]
-            }
+                "tags": ["urgent", "billing"],
+            },
         },
         {
             "id": 2,
-            "metadata": {
-                "customer": {"name": "Jane", "tier": "standard"},
-                "tags": ["support"]
-            }
+            "metadata": {"customer": {"name": "Jane", "tier": "standard"}, "tags": ["support"]},
         },
     ]
 
@@ -180,24 +168,19 @@ def test_metadata_query_sqlite_fallback(sqlite_config: Dict[str, Any], monkeypat
     mem.save(
         user_id=user_id,
         content="Urgent billing issue",
-        metadata={"topic": "billing", "priority": "high"}
+        metadata={"topic": "billing", "priority": "high"},
     )
     mem.save(
-        user_id=user_id,
-        content="General inquiry",
-        metadata={"topic": "general", "priority": "low"}
+        user_id=user_id, content="General inquiry", metadata={"topic": "general", "priority": "low"}
     )
     mem.save(
         user_id=user_id,
         content="Another billing matter",
-        metadata={"topic": "billing", "priority": "medium"}
+        metadata={"topic": "billing", "priority": "medium"},
     )
 
     # Query with metadata filter
-    results = mem.db.get_memories(
-        user_id=user_id,
-        where_metadata={"topic": "billing"}
-    )
+    results = mem.db.get_memories(user_id=user_id, where_metadata={"topic": "billing"})
 
     # Should return 2 billing memories via Python-level filtering
     assert len(results) == 2
@@ -236,12 +219,16 @@ def test_gin_indexes_postgres_only(monkeypatch):
     if db.is_postgres:
         # Check for GIN indexes using raw SQL
         with db.engine.connect() as conn:
-            result = conn.execute(text("""
+            result = conn.execute(
+                text(
+                    """
                 SELECT indexname
                 FROM pg_indexes
                 WHERE tablename = 'memories'
                 AND indexname LIKE '%_gin'
-            """))
+            """
+                )
+            )
             gin_indexes = [row[0] for row in result]
 
             # Should have GIN indexes for metadata and related_threads
@@ -395,6 +382,7 @@ def test_performance_warning_not_on_postgres(monkeypatch, caplog):
     monkeypatch.setenv("OPENAI_API_KEY", "")
 
     import logging
+
     caplog.set_level(logging.WARNING)
 
     db = PostgresConnector()
@@ -405,9 +393,7 @@ def test_performance_warning_not_on_postgres(monkeypatch, caplog):
 
 
 def test_metadata_query_performance_postgres_vs_sqlite(
-    postgres_config: Dict[str, Any],
-    sqlite_config: Dict[str, Any],
-    monkeypatch
+    postgres_config: Dict[str, Any], sqlite_config: Dict[str, Any], monkeypatch
 ):
     """Test metadata query uses native JSONB on PostgreSQL."""
     monkeypatch.setenv("OPENAI_API_KEY", "")
@@ -417,17 +403,10 @@ def test_metadata_query_performance_postgres_vs_sqlite(
     if mem_pg.db.is_postgres:
         # Create memory and query
         user_id = "perf_test"
-        mem_pg.save(
-            user_id=user_id,
-            content="Test",
-            metadata={"test": "value"}
-        )
+        mem_pg.save(user_id=user_id, content="Test", metadata={"test": "value"})
 
         # This should use native JSONB containment (not Python filtering)
-        results = mem_pg.db.get_memories(
-            user_id=user_id,
-            where_metadata={"test": "value"}
-        )
+        results = mem_pg.db.get_memories(user_id=user_id, where_metadata={"test": "value"})
         assert len(results) == 1
 
     # Test SQLite path
@@ -436,17 +415,10 @@ def test_metadata_query_performance_postgres_vs_sqlite(
 
     # Create memory and query
     user_id = "perf_test"
-    mem_sqlite.save(
-        user_id=user_id,
-        content="Test",
-        metadata={"test": "value"}
-    )
+    mem_sqlite.save(user_id=user_id, content="Test", metadata={"test": "value"})
 
     # This should use Python-level filtering
-    results = mem_sqlite.db.get_memories(
-        user_id=user_id,
-        where_metadata={"test": "value"}
-    )
+    results = mem_sqlite.db.get_memories(user_id=user_id, where_metadata={"test": "value"})
     assert len(results) == 1
 
 

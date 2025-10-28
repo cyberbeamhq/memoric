@@ -1,4 +1,5 @@
 """Alembic environment configuration for Memoric."""
+
 from __future__ import annotations
 
 import os
@@ -24,7 +25,7 @@ if config.config_file_name is not None:
 # Get database URL from environment or config
 database_url = os.getenv(
     "MEMORIC_DATABASE_URL",
-    config.get_main_option("sqlalchemy.url", "postgresql://localhost/memoric")
+    config.get_main_option("sqlalchemy.url", "postgresql://localhost/memoric"),
 )
 
 # Create connector to get metadata

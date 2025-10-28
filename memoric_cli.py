@@ -37,13 +37,18 @@ def init_db_cmd(config_path: Optional[str]) -> None:
 @click.option("--user", "user_id", type=str, required=False)
 @click.option("--thread", "thread_id", type=str, required=False)
 @click.option("--config", "config_path", type=click.Path(exists=True), required=False)
-def inspect_cmd(user_id: Optional[str], thread_id: Optional[str], config_path: Optional[str]) -> None:
+def inspect_cmd(
+    user_id: Optional[str], thread_id: Optional[str], config_path: Optional[str]
+) -> None:
     m = Memoric(config_path=config_path)
     info = m.inspect()
     if user_id or thread_id:
         data = m.retrieve(user_id=user_id, thread_id=thread_id, top_k=5)
-        info["sample"] = [{k: d.get(k) for k in ("id", "thread_id", "tier", "_score")} for d in data]
+        info["sample"] = [
+            {k: d.get(k) for k in ("id", "thread_id", "tier", "_score")} for d in data
+        ]
     click.echo(json.dumps(info, indent=2))
+
 
 @cli.command("stats")
 @click.option("--config", "config_path", type=click.Path(exists=True), required=False)
@@ -69,8 +74,14 @@ def stats_cmd(config_path: Optional[str]) -> None:
         ctable.add_column("Category")
         ctable.add_column("Size")
         for c in clusters:
-            ctable.add_row(str(c.get("cluster_id")), str(c.get("topic")), str(c.get("category")), str(len(c.get("memory_ids") or [])))
+            ctable.add_row(
+                str(c.get("cluster_id")),
+                str(c.get("topic")),
+                str(c.get("category")),
+                str(len(c.get("memory_ids") or [])),
+            )
         console.print(ctable)
+
 
 def main() -> None:
     cli()
@@ -78,5 +89,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

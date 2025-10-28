@@ -9,6 +9,7 @@ Tests cover:
 - Topic clustering
 - Retrieval filtering of summarized records
 """
+
 from __future__ import annotations
 
 import time

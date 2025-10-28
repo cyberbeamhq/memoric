@@ -28,7 +28,7 @@ class Memoric:
 
     def _create_sqlite_fallback(self) -> PostgresConnector:
         # For local dev without PG, allow sqlite URL via config or fallback file
-        sqlite_dsn = (self.config.get("storage", {}).get("sqlite_dsn") or "sqlite:///memoric_dev.db")
+        sqlite_dsn = self.config.get("storage", {}).get("sqlite_dsn") or "sqlite:///memoric_dev.db"
         return PostgresConnector(dsn=sqlite_dsn)
 
     def _resolve_db_config(self) -> Dict[str, Any]:
@@ -54,12 +54,16 @@ class Memoric:
             self.config = _deep_merge(self.config, load_yaml(Path(config_path)))  # type: ignore
 
         db_cfg = self._resolve_db_config()
-        self.db = PostgresConnector(dsn=db_cfg["dsn"]) if db_cfg.get("dsn") else self._create_sqlite_fallback()
+        self.db = (
+            PostgresConnector(dsn=db_cfg["dsn"])
+            if db_cfg.get("dsn")
+            else self._create_sqlite_fallback()
+        )
         self.db.create_schema_if_not_exists()
 
         self.metadata_agent = MetadataAgent(api_key=os.getenv("OPENAI_API_KEY"))
-        recall_cfg = (self.config.get("recall") or {})
-        scoring_cfg = (self.config.get("scoring") or {})
+        recall_cfg = self.config.get("recall") or {}
+        scoring_cfg = self.config.get("scoring") or {}
         self.retriever = Retriever(
             db=self.db,
             default_top_k=int(recall_cfg.get("default_top_k", 10)),
@@ -81,14 +85,22 @@ class Memoric:
     ) -> int:
         self._ensure_initialized()
         metadata = dict(metadata or {})
-        enriched = self.metadata_agent.extract(text=content, user_id=user_id, thread_id=thread_id, session_id=session_id)
+        enriched = self.metadata_agent.extract(
+            text=content, user_id=user_id, thread_id=thread_id, session_id=session_id
+        )
         merged_meta = {**metadata, **enriched}
 
         importance_map = {"low": 3, "medium": 5, "high": 8}
-        importance_level = importance_map.get(str(merged_meta.get("importance", "medium")).lower(), 5)
-        score = score_memory(importance_level=importance_level, last_seen_at=None, seen_count=int(merged_meta.get("seen_count", 1)))
+        importance_level = importance_map.get(
+            str(merged_meta.get("importance", "medium")).lower(), 5
+        )
+        score = score_memory(
+            importance_level=importance_level,
+            last_seen_at=None,
+            seen_count=int(merged_meta.get("seen_count", 1)),
+        )
 
-        write_policy = (self.config.get("policies", {}).get("write") or [])
+        write_policy = self.config.get("policies", {}).get("write") or []
         target_tier = None
         for rule in write_policy:
             when = (rule.get("when") or "").strip().lower()
@@ -161,5 +173,3 @@ class Memoric:
             "db_table": self.db.table_name,
             "counts_by_tier": self.db.count_by_tier(),
         }
-
-

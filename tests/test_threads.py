@@ -18,5 +18,3 @@ def test_thread_scoped_retrieval():
 
     r_global = m.retrieve(scope="global", top_k=10)
     assert len(r_global) >= len(r_user)
-
-

@@ -29,5 +29,3 @@ class SimpleClustering:
             buckets.setdefault(key, []).append(int(m["id"]))
         clusters = [Cluster(topic=k[0], category=k[1], memory_ids=v) for k, v in buckets.items()]
         return clusters
-
-

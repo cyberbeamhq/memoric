@@ -18,7 +18,9 @@ def create_app(mem: Optional[Memoric] = None):
     m = mem or Memoric()
 
     @app.get("/memories")
-    def list_memories(user_id: Optional[str] = None, thread_id: Optional[str] = None, top_k: int = 20):
+    def list_memories(
+        user_id: Optional[str] = None, thread_id: Optional[str] = None, top_k: int = 20
+    ):
         return m.retrieve(user_id=user_id, thread_id=thread_id, top_k=top_k)
 
     @app.post("/memories")
@@ -36,5 +38,3 @@ def create_app(mem: Optional[Memoric] = None):
         return m.db.get_clusters(topic=topic, limit=limit)
 
     return app
-
-

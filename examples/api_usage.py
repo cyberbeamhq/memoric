@@ -8,10 +8,12 @@ Start the server first:
 
 Then run this script in another terminal.
 """
+
 import requests
 import json
 
 API_BASE = "http://localhost:8000"
+
 
 def main():
     print("=== Memoric API Usage Example ===\n")
@@ -28,11 +30,7 @@ def main():
         "user_id": "api_user_123",
         "content": "Customer inquired about shipping times for international orders",
         "thread_id": "support_chat_789",
-        "metadata": {
-            "topic": "shipping",
-            "category": "support",
-            "priority": "medium"
-        }
+        "metadata": {"topic": "shipping", "category": "support", "priority": "medium"},
     }
     response = requests.post(f"{API_BASE}/memories", json=save_payload)
     memory_id = response.json()["id"]
@@ -40,15 +38,11 @@ def main():
 
     # 3. Retrieve memories
     print("3. Retrieving memories...")
-    retrieve_payload = {
-        "user_id": "api_user_123",
-        "thread_id": "support_chat_789",
-        "top_k": 10
-    }
+    retrieve_payload = {"user_id": "api_user_123", "thread_id": "support_chat_789", "top_k": 10}
     response = requests.post(f"{API_BASE}/memories/retrieve", json=retrieve_payload)
     result = response.json()
     print(f"   Found {result['count']} memories")
-    for mem in result['memories'][:3]:
+    for mem in result["memories"][:3]:
         print(f"   - {mem['content'][:60]}...\n")
 
     # 4. Retrieve with metadata filter
@@ -56,7 +50,7 @@ def main():
     retrieve_payload = {
         "user_id": "api_user_123",
         "metadata_filter": {"topic": "shipping"},
-        "top_k": 5
+        "top_k": 5,
     }
     response = requests.post(f"{API_BASE}/memories/retrieve", json=retrieve_payload)
     result = response.json()
@@ -67,7 +61,7 @@ def main():
     response = requests.get(f"{API_BASE}/stats", params={"user_id": "api_user_123"})
     stats = response.json()
     print(f"   Tier statistics:")
-    for tier, count in stats.get('count_by_tier', {}).items():
+    for tier, count in stats.get("count_by_tier", {}).items():
         print(f"     {tier}: {count} memories\n")
 
     # 6. Get clusters
@@ -75,8 +69,10 @@ def main():
     response = requests.get(f"{API_BASE}/clusters", params={"limit": 5})
     clusters = response.json()
     print(f"   Found {clusters['count']} clusters")
-    for cluster in clusters['clusters'][:3]:
-        print(f"   - {cluster.get('topic')} / {cluster.get('category')}: {cluster.get('memory_count', 0)} memories\n")
+    for cluster in clusters["clusters"][:3]:
+        print(
+            f"   - {cluster.get('topic')} / {cluster.get('category')}: {cluster.get('memory_count', 0)} memories\n"
+        )
 
     # 7. Run policies
     print("7. Running memory policies...")
@@ -89,10 +85,7 @@ def main():
 
     # 8. Promote memories to different tier
     print("8. Promoting memory to long_term tier...")
-    promote_payload = {
-        "memory_ids": [memory_id],
-        "target_tier": "long_term"
-    }
+    promote_payload = {"memory_ids": [memory_id], "target_tier": "long_term"}
     response = requests.post(f"{API_BASE}/memories/promote", json=promote_payload)
     result = response.json()
     print(f"   Promoted {result['promoted']} memories to {result['target_tier']}\n")

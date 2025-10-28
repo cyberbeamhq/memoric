@@ -12,6 +12,7 @@ Usage:
     chain = ConversationChain(llm=OpenAI(), memory=memory)
     chain.run("Hello!")
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -19,6 +20,7 @@ from typing import Any, Dict, List, Optional
 try:
     from langchain.schema import BaseMemory, AIMessage, HumanMessage, SystemMessage
     from langchain.memory import ConversationBufferMemory
+
     LANGCHAIN_AVAILABLE = True
 except ImportError:
     # Graceful fallback if LangChain not installed
@@ -117,10 +119,12 @@ class MemoricChatMemory(BaseMemory if LANGCHAIN_AVAILABLE else object):
             return {self.memory_key: messages}
         else:
             # Return as string
-            history_str = "\n".join([
-                f"{mem.get('metadata', {}).get('role', 'Human')}: {mem.get('content', '')}"
-                for mem in memories
-            ])
+            history_str = "\n".join(
+                [
+                    f"{mem.get('metadata', {}).get('role', 'Human')}: {mem.get('content', '')}"
+                    for mem in memories
+                ]
+            )
             return {self.memory_key: history_str}
 
     def save_context(self, inputs: Dict[str, Any], outputs: Dict[str, Any]) -> None:

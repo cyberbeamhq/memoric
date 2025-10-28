@@ -7,7 +7,14 @@ from ..utils.scoring import ScoringEngine, ScoringWeights, score_memory
 
 
 class Retriever:
-    def __init__(self, *, db: PostgresConnector, default_top_k: int = 10, scoring_config: Optional[dict] = None, custom_rules: Optional[list] = None) -> None:
+    def __init__(
+        self,
+        *,
+        db: PostgresConnector,
+        default_top_k: int = 10,
+        scoring_config: Optional[dict] = None,
+        custom_rules: Optional[list] = None,
+    ) -> None:
         self.db = db
         self.default_top_k = default_top_k
         self.scorer = ScoringEngine(config=scoring_config, custom_rules=custom_rules)
@@ -59,5 +66,3 @@ class Retriever:
         ranked.sort(key=lambda x: x.get("_score", 0), reverse=True)
         limit = top_k or self.default_top_k
         return ranked[:limit]
-
-

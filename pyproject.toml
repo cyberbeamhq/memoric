@@ -32,7 +32,7 @@ description = "Deterministic, policy-driven memory management for AI agents"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Muthanna Alfaris", email = "ceo@cyberbeam.ie"  }]
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 keywords = ["AI", "agents", "memory", "framework", "retrieval"]
 classifiers = [
   "Development Status :: 3 - Alpha",

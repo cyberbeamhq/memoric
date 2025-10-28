@@ -1,0 +1,83 @@
+# Default configuration for Memoric
+version: 1
+
+storage:
+  tiers:
+    - name: short_term
+      backend: memory
+      capacity: 1000
+      ttl_seconds: 3600
+      expiry_days: 1
+      trim:
+        max_chars: 800
+    - name: mid_term
+      backend: sqlite
+      dsn: "sqlite:///memoric_mid_term.db"
+      capacity: 100000
+      expiry_days: 30
+      cluster_by: ["user_id", "thread_id"]
+    - name: long_term
+      backend: sqlite
+      dsn: "sqlite:///memoric_long_term.db"
+      capacity: 1000000
+      expiry_days: 3650
+
+metadata:
+  enrichers:
+    - name: timestamp
+      enabled: true
+    - name: hash
+      algorithm: sha256
+      enabled: true
+    - name: embedding
+      provider: "none"
+      enabled: false
+
+policies:
+  write:
+    - when: always
+      to: [short_term]
+    - when: score >= 0.8
+      to: [mid_term]
+  migrate:
+    - when: ttl_expired
+      from: short_term
+      to: mid_term
+    - when: ttl_expired
+      from: mid_term
+      to: long_term
+  evict:
+    - when: over_capacity
+      from: short_term
+      strategy: lru
+
+summarization:
+  enabled: true
+  min_chars: 600
+  target_chars: 300
+  mark_summarized: true
+
+recall:
+  thread_awareness: true
+  default_top_k: 10
+  rerank: none
+  scope: thread  # options: thread, topic, user, global
+  fallback_order: [thread, topic, user, global]
+  include_summarized: false
+
+privacy:
+  enforce_user_scope: true
+  allow_shared_namespace: false
+  default_namespace: null
+
+logging:
+  level: INFO
+  json: false
+
+scoring:
+  importance_weight: 0.5
+  recency_weight: 0.3
+  repetition_weight: 0.2
+  decay_days: 60
+
+

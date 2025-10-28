@@ -1,3 +1,23 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+build/
+dist/
+.eggs/
+*.egg-info/
+.env
+.venv
+.cache/
+.mypy_cache/
+.pytest_cache/
+.DS_Store
+.idea/
+.vscode/
+*.log
+logs/
+.ipynb_checkpoints/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

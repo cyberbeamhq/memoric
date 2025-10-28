@@ -30,7 +30,7 @@ name = "memoric"
 version = "0.0.1"
 description = "Deterministic, policy-driven memory management for AI agents"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 authors = [{ name = "Muthanna Alfaris", email = "ceo@cyberbeam.ie"  }]
 license = { text = "Apache-2.0" }
 keywords = ["AI", "agents", "memory", "framework", "retrieval"]

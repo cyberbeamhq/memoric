@@ -44,8 +44,8 @@ classifiers = [
 memoric = "memoric.memoric_cli:main"
 
 [project.urls]
-Homepage = "https://github.com/your-org/memoric"
-Repository = "https://github.com/your-org/memoric"
-Issues = "https://github.com/your-org/memoric/issues"
+Homepage = "https://github.com/cyberbeamhq/memoric"
+Repository = "https://github.com/cyberbeamhq/memoric"
+Issues = "https://github.com/cyberbeamhq/memoric/issues"
 
 

@@ -32,7 +32,7 @@ setup(
     license="Apache-2.0",
     packages=find_packages(exclude=("tests", "examples")),
     include_package_data=True,
-    python_requires=">=3.10",
+    python_requires=">=3.9",
     install_requires=install_requires,
     extras_require={
         "dev": ["pytest", "pytest-cov", "black", "flake8", "mypy", "build"],

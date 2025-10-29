@@ -1,24 +1,34 @@
 # MANIFEST.in - Specify additional files to include in distribution
 
-# Include all configuration files
-include config/*.yaml
-include config/*.yml
-
-# Include documentation
+# Include documentation files
 include README.md
 include LICENSE
-include CONTRIBUTING.md
-include *.md
+include AUTHENTICATION_GUIDE.md
+include JWT_AUTHENTICATION_COMPLETE.md
+include AUDIT_LOGGING_COMPLETE.md
+include SECURITY_IMPLEMENTATION_COMPLETE.md
 
-# Include example files (but not in the installed package)
-recursive-include examples *.py
+# Include configuration files
+include pyproject.toml
+include setup.py
+include requirements.txt
+
+# Include all config files in memoric package
+recursive-include memoric/config *.yaml *.yml
 
 # Include type stubs
-include py.typed
+include memoric/py.typed
 
 # Exclude unnecessary files
+global-exclude *.pyc
 global-exclude __pycache__
-global-exclude *.py[co]
+global-exclude *.so
 global-exclude .DS_Store
 global-exclude *.swp
 global-exclude *.swo
+
+# Exclude test and development files from distribution
+prune tests
+prune examples
+exclude .gitignore
+exclude .python-version

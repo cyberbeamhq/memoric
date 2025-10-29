@@ -19,6 +19,10 @@ install_requires = [
     "sqlalchemy>=2.0",
     "fastapi>=0.112.0",
     "uvicorn>=0.30.0",
+    "cryptography>=41.0.0",
+    "pyjwt>=2.8.0",
+    "passlib>=1.7.4",
+    "psutil>=5.9.0",
 ]
 
 setup(

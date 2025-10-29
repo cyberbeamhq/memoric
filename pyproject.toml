@@ -52,11 +52,16 @@ classifiers = [
 dependencies = [
   "pyyaml>=6.0.1",
   "pydantic>=2.8.0",
+  "pydantic[email]>=2.8.0",
   "click>=8.1.7",
   "rich>=13.7.1",
   "sqlalchemy>=2.0",
   "fastapi>=0.112.0",
   "uvicorn>=0.30.0",
+  "cryptography>=41.0.0",
+  "pyjwt>=2.8.0",
+  "passlib>=1.7.4",
+  "psutil>=5.9.0",
 ]
 
 [project.optional-dependencies]

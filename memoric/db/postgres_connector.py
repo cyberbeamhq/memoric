@@ -26,6 +26,8 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.pool import QueuePool
 
+from ..utils.encryption import EncryptionService
+
 logger = logging.getLogger(__name__)
 
 
@@ -39,6 +41,8 @@ class PostgresConnector:
         table_name: str = DEFAULT_TABLE_NAME,
         pool_size: int = 5,
         max_overflow: int = 10,
+        encryption_key: Optional[str] = None,
+        encrypt_content: bool = False,
     ) -> None:
         self.dsn = dsn
         self.table_name = table_name
@@ -50,6 +54,16 @@ class PostgresConnector:
             future=True,
         )
         self.metadata = MetaData()
+
+        # Initialize encryption service
+        self.encryptor = EncryptionService(
+            encryption_key=encryption_key,
+            enabled=encrypt_content
+        )
+        self.encrypt_content = encrypt_content
+
+        # Fields to encrypt
+        self.encrypted_fields = ["content"] if encrypt_content else []
         self.table = Table(
             self.table_name,
             self.metadata,
@@ -163,6 +177,9 @@ class PostgresConnector:
         if score is None:
             score = 50
 
+        # Encrypt content if encryption is enabled
+        encrypted_content = self.encryptor.encrypt(content) if self.encrypt_content else content
+
         try:
             with self.engine.begin() as conn:
                 stmt = (
@@ -171,7 +188,7 @@ class PostgresConnector:
                         user_id=user_id,
                         namespace=namespace,
                         thread_id=thread_id,
-                        content=content,
+                        content=encrypted_content,
                         tier=tier,
                         score=score,
                         metadata=metadata,
@@ -257,6 +274,18 @@ class PostgresConnector:
         with self.engine.connect() as conn:
             rows = conn.execute(stmt).mappings().all()
             results = [dict(row) for row in rows]
+
+            # Decrypt content if encryption is enabled
+            if self.encrypt_content:
+                for result in results:
+                    if "content" in result and result["content"]:
+                        try:
+                            result["content"] = self.encryptor.decrypt(result["content"])
+                        except Exception as e:
+                            logger.warning(
+                                f"Failed to decrypt content for memory {result.get('id')}: {e}"
+                            )
+                            # Leave encrypted if decryption fails (wrong key or corrupted data)
 
             # Apply Python-level metadata filtering for SQLite
             if use_python_filter and where_metadata:

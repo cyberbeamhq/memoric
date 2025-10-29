@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from memoric.core.memory_manager import Memoric
+# Use proper package imports
+from memoric import Memoric
 
 
 def main() -> None:

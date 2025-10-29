@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uvicorn
-from memoric.api.server import create_app
+from api.server import create_app
 
 
 def main() -> None:

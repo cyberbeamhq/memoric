@@ -7,7 +7,7 @@ Prerequisites:
     pip install langchain openai
 """
 
-from memoric.integrations.langchain_adapter import MemoricChatMemory, create_langchain_memory
+from integrations.langchain_adapter import MemoricChatMemory, create_langchain_memory
 
 
 def example_basic_memory():

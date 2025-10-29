@@ -1,0 +1,24 @@
+# MANIFEST.in - Specify additional files to include in distribution
+
+# Include all configuration files
+include config/*.yaml
+include config/*.yml
+
+# Include documentation
+include README.md
+include LICENSE
+include CONTRIBUTING.md
+include *.md
+
+# Include example files (but not in the installed package)
+recursive-include examples *.py
+
+# Include type stubs
+include py.typed
+
+# Exclude unnecessary files
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .DS_Store
+global-exclude *.swp
+global-exclude *.swo

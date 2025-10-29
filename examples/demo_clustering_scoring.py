@@ -15,7 +15,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from memoric.core.memory_manager import Memoric
+# Use proper package imports
+from memoric import Memoric
 from memoric.utils.scoring import (
     create_topic_boost_rule,
     create_entity_match_rule,

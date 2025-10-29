@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from memoric.integrations.langchain.memory import MemoricMemory
+from integrations.langchain.memory import MemoricMemory
 
 
 def main() -> None:

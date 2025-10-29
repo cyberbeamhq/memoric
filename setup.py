@@ -10,20 +10,20 @@ long_description = (
     else "Memoric: Deterministic, policy-driven memory management for AI agents."
 )
 
-requirements_path = ROOT / "requirements.txt"
-install_requires = (
-    [
-        line.strip()
-        for line in requirements_path.read_text(encoding="utf-8").splitlines()
-        if line.strip() and not line.strip().startswith("#")
-    ]
-    if requirements_path.exists()
-    else []
-)
+# Core dependencies (matching pyproject.toml)
+install_requires = [
+    "pyyaml>=6.0.1",
+    "pydantic>=2.8.0",
+    "click>=8.1.7",
+    "rich>=13.7.1",
+    "sqlalchemy>=2.0",
+    "fastapi>=0.112.0",
+    "uvicorn>=0.30.0",
+]
 
 setup(
     name="memoric",
-    version="0.0.1",
+    version="0.1.0",
     description="Deterministic, policy-driven memory management for AI agents",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -32,10 +32,25 @@ setup(
     license="Apache-2.0",
     packages=find_packages(exclude=("tests", "examples")),
     include_package_data=True,
+    package_data={
+        "memoric": ["config/*.yaml", "py.typed"],
+    },
     python_requires=">=3.9",
     install_requires=install_requires,
     extras_require={
+        "llm": ["openai>=1.0.0"],
+        "metrics": ["prometheus-client>=0.19.0"],
         "dev": ["pytest", "pytest-cov", "black", "flake8", "mypy", "build"],
+        "all": [
+            "openai>=1.0.0",
+            "prometheus-client>=0.19.0",
+            "pytest",
+            "pytest-cov",
+            "black",
+            "flake8",
+            "mypy",
+            "build",
+        ],
     },
     classifiers=[
         "Development Status :: 3 - Alpha",
@@ -55,7 +70,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "memoric=memoric_cli:main",
+            "memoric=memoric.cli:main",
         ]
     },
 )

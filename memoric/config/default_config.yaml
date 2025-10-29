@@ -1,0 +1,289 @@
+# Memoric Default Configuration
+# ==============================
+#
+# This file contains all configurable options for Memoric.
+# Copy this file to create your own configuration:
+#   cp config/default_config.yaml my_config.yaml
+#
+# Then use it in your code:
+#   from memoric import MemoryManager
+#   m = MemoryManager(config_path="my_config.yaml")
+#
+# All sections are optional. Uncomment and modify as needed.
+
+# ==============================================================================
+# DATABASE CONFIGURATION
+# ==============================================================================
+
+database:
+  # Database connection string
+  # Examples:
+  #   PostgreSQL: postgresql://user:pass@localhost:5432/memoric
+  #   SQLite:     sqlite:///./memoric.db
+  dsn: "sqlite:///./memoric.db"
+
+  # Connection pool settings (PostgreSQL only)
+  pool:
+    size: 5            # Number of connections in pool
+    max_overflow: 10   # Max connections beyond pool_size
+    timeout: 30        # Connection timeout in seconds
+
+# ==============================================================================
+# TEXT PROCESSING (Prevent Data Loss!)
+# ==============================================================================
+
+text_processing:
+  # Trimmer configuration
+  # Types: noop (no trimming), simple (truncation)
+  trimmer:
+    type: noop  # RECOMMENDED: Disable trimming to preserve data
+    # type: simple  # Enable simple truncation
+
+  # Summarizer configuration
+  # Types: noop (no summarization), simple (heuristic), llm (OpenAI-powered)
+  summarizer:
+    type: noop  # RECOMMENDED: Disable to preserve data
+    # OR use LLM for intelligent summarization:
+    # type: llm
+    # model: gpt-4o-mini
+    # api_key: sk-...  # Optional, uses OPENAI_API_KEY env var
+
+# ==============================================================================
+# STORAGE TIERS
+# ==============================================================================
+
+storage:
+  tiers:
+    # Short-term memory (recent, high-churn)
+    - name: short_term
+      expiry_days: 7        # Migrate to mid_term after 7 days
+      trim:
+        max_chars: 5000     # Trim if > 5000 chars (ignored if trimmer=noop)
+
+    # Mid-term memory (intermediate)
+    - name: mid_term
+      expiry_days: 30       # Migrate to long_term after 30 days
+      trim:
+        max_chars: 2000     # Trim if > 2000 chars (ignored if trimmer=noop)
+
+    # Long-term memory (archive)
+    - name: long_term
+      # No expiry - stays here forever
+      trim:
+        max_chars: 1000     # Trim if > 1000 chars (ignored if trimmer=noop)
+
+# ==============================================================================
+# MEMORY POLICIES
+# ==============================================================================
+
+policies:
+  # Write policies - where to store new memories
+  write_policies:
+    - when: "score >= 0.8"           # High importance
+      to: [long_term]
+
+    - when: "score >= 0.5"           # Medium importance
+      to: [mid_term]
+
+    - when: "score < 0.5"            # Low importance
+      to: [short_term]
+
+  # Migration policies - move memories between tiers
+  migration_policies:
+    - from: short_term
+      to: mid_term
+      when: "age_days > 7"
+
+    - from: mid_term
+      to: long_term
+      when: "age_days > 30"
+
+  # Trimming policies - reduce memory size
+  trimming_policies:
+    - tier: mid_term
+      when: "length > 2000"
+      action: trim
+      max_chars: 2000
+
+    - tier: long_term
+      when: "length > 1000"
+      action: trim
+      max_chars: 1000
+
+# ==============================================================================
+# SUMMARIZATION
+# ==============================================================================
+
+summarization:
+  enabled: false         # Set to true to enable automatic summarization
+  min_chars: 600         # Only summarize if content >= 600 chars
+  target_chars: 300      # Target length for summaries
+  mark_summarized: true  # Mark memories as summarized to avoid re-processing
+
+  # Thread-level summarization
+  thread_summarization:
+    enabled: false       # Summarize entire threads
+    min_records: 10      # Need at least 10 records in thread
+    max_chars: 1000      # Target length for thread summaries
+
+# ==============================================================================
+# RETRIEVAL & RECALL
+# ==============================================================================
+
+recall:
+  default_top_k: 10      # Default number of results to return
+  default_scope: thread  # Default scope: thread, topic, user, global
+
+  # Scope options:
+  #   - thread: Search within a single conversation thread
+  #   - topic: Search across threads with same topic
+  #   - user: Search all memories for a user
+  #   - global: Search across all users (⚠️  privacy concern!)
+
+# ==============================================================================
+# SCORING & RANKING
+# ==============================================================================
+
+scoring:
+  # Scoring weights for ranking memories
+  weights:
+    recency: 0.3         # How recent is the memory?
+    importance: 0.4      # How important is it?
+    frequency: 0.2       # How often accessed?
+    relevance: 0.1       # How relevant to current context?
+
+  # Custom scoring rules
+  rules:
+    # Boost memories with specific topics
+    - type: topic_boost
+      topic: critical
+      boost: 20          # Add 20 points to score
+
+    # Boost if entities match
+    - type: entity_match
+      entities: [customer, deadline, bug]
+      boost: 15
+
+# ==============================================================================
+# METADATA ENRICHMENT
+# ==============================================================================
+
+metadata:
+  enrichment:
+    enabled: true                 # Enable automatic metadata extraction
+    model: gpt-4o-mini            # OpenAI model for extraction
+    # api_key: sk-...             # Optional, uses OPENAI_API_KEY env var
+
+  # Fields to extract
+  fields:
+    - topic                       # Main topic of the memory
+    - category                    # Category (meeting, note, etc.)
+    - entities                    # Named entities (people, places, etc.)
+    - importance                  # Importance level (low, medium, high, critical)
+
+# ==============================================================================
+# CLUSTERING
+# ==============================================================================
+
+clustering:
+  enabled: true                   # Enable automatic clustering
+  algorithm: simple               # Algorithm: simple (topic/category grouping)
+  min_cluster_size: 3             # Minimum memories per cluster
+  rebuild_interval: 86400         # Rebuild clusters every 24 hours (seconds)
+
+# ==============================================================================
+# PRIVACY & SECURITY
+# ==============================================================================
+
+privacy:
+  user_isolation: true            # Enforce user data isolation
+  allow_global_scope: false       # Allow global (cross-user) retrieval
+  encrypt_content: false          # Encrypt memory content at rest
+  # encryption_key: "..."         # Required if encrypt_content=true
+
+# ==============================================================================
+# OBSERVABILITY
+# ==============================================================================
+
+observability:
+  # Logging configuration
+  logging:
+    enabled: true
+    level: INFO                   # DEBUG, INFO, WARNING, ERROR
+    format: json                  # json or text
+    output: stdout                # stdout, file, or path to log file
+
+  # Metrics configuration
+  metrics:
+    enabled: true
+    exporter: prometheus          # prometheus, statsd, or none
+    port: 9090                    # Metrics endpoint port
+    path: /metrics                # Metrics endpoint path
+
+  # Tracing configuration
+  tracing:
+    enabled: false
+    exporter: jaeger              # jaeger, zipkin, or none
+    endpoint: http://localhost:14268/api/traces
+
+# ==============================================================================
+# PERFORMANCE
+# ==============================================================================
+
+performance:
+  # Batch processing
+  batch_size: 100                 # Process memories in batches of 100
+  max_concurrent: 10              # Max concurrent operations
+
+  # Caching
+  cache:
+    enabled: true
+    ttl: 300                      # Cache TTL in seconds
+    max_size: 1000                # Max cache entries
+
+  # Rate limiting
+  rate_limit:
+    enabled: false
+    requests_per_minute: 100
+
+# ==============================================================================
+# INTEGRATIONS
+# ==============================================================================
+
+integrations:
+  # Vector database for semantic search
+  vector_db:
+    enabled: false
+    provider: pinecone            # pinecone, weaviate, qdrant
+    # api_key: "..."
+    # index_name: memoric
+
+  # External APIs
+  apis:
+    openai:
+      # api_key: sk-...           # Set via OPENAI_API_KEY env var
+      timeout: 30
+      max_retries: 3
+
+# ==============================================================================
+# DEVELOPER OPTIONS
+# ==============================================================================
+
+developer:
+  debug: false                    # Enable debug mode
+  strict_mode: false              # Fail on warnings
+  profile: false                  # Enable performance profiling
+
+# ==============================================================================
+# EXAMPLES & DOCUMENTATION
+# ==============================================================================
+
+# See examples/ directory for usage examples:
+#   - examples/quickstart_sdk.py - Basic usage
+#   - examples/custom_text_processing.py - Custom processors
+#   - examples/demo_multi_tier.py - Multi-tier demonstration
+#
+# Documentation:
+#   - TEXT_PROCESSING_GUIDE.md - Text processing configuration
+#   - README.md - Project overview
+#   - INTEGRATION_GUIDE.md - Integration examples

@@ -1,0 +1,182 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: memoric_test
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: memoric_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      MEMORIC_TEST_POSTGRES_DSN: postgresql://memoric_test:test_password@localhost:5432/memoric_test
+      OPENAI_API_KEY: sk-test-key-not-real
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[all]
+        pip install pytest pytest-cov pytest-timeout
+
+    - name: Lint with flake8
+      run: |
+        pip install flake8
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Exit-zero treats all errors as warnings
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
+      continue-on-error: true
+
+    - name: Check code formatting with black
+      run: |
+        pip install black
+        black --check --diff .
+      continue-on-error: true
+
+    - name: Run tests with SQLite
+      run: |
+        pytest tests/ -v --cov=core --cov=db --cov=utils --cov-report=xml --cov-report=term
+      timeout-minutes: 5
+
+    - name: Run PostgreSQL-specific tests
+      run: |
+        pytest tests/test_dialect_awareness.py -v -k postgres
+        pytest tests/test_migrations.py -v
+      timeout-minutes: 5
+
+    - name: Run all tests with coverage
+      run: |
+        pytest tests/ -v \
+          --cov=core \
+          --cov=db \
+          --cov=utils \
+          --cov=agents \
+          --cov=integrations \
+          --cov-report=xml \
+          --cov-report=term-missing
+      timeout-minutes: 10
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+    - name: Test database migrations
+      run: |
+        pip install alembic
+        alembic upgrade head
+        alembic downgrade base
+        alembic upgrade head
+      env:
+        MEMORIC_DATABASE_URL: ${{ env.MEMORIC_TEST_POSTGRES_DSN }}
+
+    - name: Run integration tests
+      run: |
+        pytest tests/ -v -m integration
+      timeout-minutes: 10
+      continue-on-error: true
+
+  test-sqlite-only:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install pytest pytest-cov
+
+    - name: Run SQLite-only tests
+      run: |
+        pytest tests/test_dialect_awareness.py -v -k sqlite
+        pytest tests/test_scope_and_clustering.py -v
+        pytest tests/test_json_filtering_concurrent.py -v
+      env:
+        OPENAI_API_KEY: sk-test-key-not-real
+
+  security-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Run Bandit security scan
+      run: |
+        pip install bandit
+        bandit -r core/ db/ utils/ agents/ -f json -o bandit-report.json
+      continue-on-error: true
+
+    - name: Run Safety check
+      run: |
+        pip install safety
+        safety check --json
+      continue-on-error: true
+
+  type-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install mypy types-PyYAML
+
+    - name: Type check with mypy
+      run: |
+        mypy core/ db/ utils/ --ignore-missing-imports
+      continue-on-error: true

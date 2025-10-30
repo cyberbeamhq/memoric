@@ -83,14 +83,44 @@ class Memoric:
         self,
         *,
         user_id: str,
-        content: str,
+        content: Optional[str] = None,
         thread_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         session_id: Optional[str] = None,
         namespace: Optional[str] = None,
+        # Aliases for better UX
+        message: Optional[str] = None,
+        role: Optional[str] = None,
     ) -> int:
+        """Save a memory to the database.
+
+        Args:
+            user_id: User identifier (required)
+            content: Memory content (or use 'message' alias)
+            thread_id: Thread/conversation identifier
+            metadata: Additional metadata dictionary
+            session_id: Session identifier
+            namespace: Namespace for multi-tenancy
+            message: Alias for 'content' parameter
+            role: Optional role (e.g., 'user', 'assistant') - stored in metadata
+
+        Returns:
+            Memory ID (int)
+        """
         self._ensure_initialized()
+
+        # Handle parameter aliases
+        if message is not None and content is None:
+            content = message
+
+        if content is None:
+            raise ValueError("Either 'content' or 'message' parameter is required")
+
         metadata = dict(metadata or {})
+
+        # Add role to metadata if provided
+        if role is not None:
+            metadata['role'] = role
         enriched = self.metadata_agent.extract(
             text=content, user_id=user_id, thread_id=thread_id, session_id=session_id
         )
@@ -153,8 +183,38 @@ class Memoric:
         top_k: Optional[int] = None,
         namespace: Optional[str] = None,
         session_id: Optional[str] = None,
+        # Aliases for better UX
+        query: Optional[str] = None,
+        max_results: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
+        """Retrieve memories from the database.
+
+        Args:
+            user_id: Filter by user ID
+            thread_id: Filter by thread ID
+            metadata_filter: Filter by metadata fields
+            scope: Retrieval scope (thread|topic|user|global)
+            top_k: Maximum number of results (or use 'max_results' alias)
+            namespace: Filter by namespace
+            session_id: Session identifier
+            query: Search query - automatically added to metadata filter
+            max_results: Alias for 'top_k' parameter
+
+        Returns:
+            List of memory dictionaries with scores
+        """
         self._ensure_initialized()
+
+        # Handle parameter aliases
+        if max_results is not None and top_k is None:
+            top_k = max_results
+
+        # Handle query parameter - add to metadata filter
+        if query is not None:
+            metadata_filter = metadata_filter or {}
+            # Store query for potential semantic search
+            metadata_filter['_query'] = query
+
         recall_scope = scope or (self.config.get("recall", {}).get("scope") or "thread")
         privacy_cfg = self.config.get("privacy", {})
         enforce_user = bool(privacy_cfg.get("enforce_user_scope", True))
@@ -175,6 +235,67 @@ class Memoric:
             scope=recall_scope,
             namespace=eff_namespace,
             top_k=top_k,
+        )
+
+    def retrieve_context(
+        self,
+        *,
+        user_id: Optional[str] = None,
+        thread_id: Optional[str] = None,
+        metadata_filter: Optional[Dict[str, Any]] = None,
+        scope: Optional[str] = None,
+        top_k: Optional[int] = None,
+        namespace: Optional[str] = None,
+        query: Optional[str] = None,
+        max_results: Optional[int] = None,
+        format_type: str = "structured",
+        include_scores: bool = False,
+    ) -> Dict[str, Any]:
+        """Retrieve memories and assemble into structured context.
+
+        This method retrieves memories and formats them into a structured context
+        with separate thread_context and related_history sections.
+
+        Args:
+            user_id: Filter by user ID
+            thread_id: Filter by thread ID
+            metadata_filter: Filter by metadata fields
+            scope: Retrieval scope (thread|topic|user|global)
+            top_k: Maximum number of results
+            namespace: Filter by namespace
+            query: Search query string
+            max_results: Alias for top_k
+            format_type: Output format - 'structured', 'simple', or 'chat'
+            include_scores: Include relevance scores in output
+
+        Returns:
+            Structured context dictionary with thread_context and related_history
+        """
+        # Retrieve raw memories
+        memories = self.retrieve(
+            user_id=user_id,
+            thread_id=thread_id,
+            metadata_filter=metadata_filter,
+            scope=scope,
+            top_k=top_k,
+            namespace=namespace,
+            query=query,
+            max_results=max_results,
+        )
+
+        # Assemble into structured context
+        from .context_assembler import ContextAssembler
+
+        assembler = ContextAssembler(
+            include_metadata=True,
+            include_scores=include_scores,
+        )
+
+        return assembler.assemble(
+            memories=memories,
+            thread_id=thread_id,
+            user_id=user_id,
+            format_type=format_type,
         )
 
     def run_policies(self) -> None:
@@ -273,3 +394,29 @@ class Memoric:
             category=category,
             limit=limit
         )
+
+    def as_storage_context(self) -> Any:
+        """
+        Create a LlamaIndex-compatible storage context.
+
+        This method provides integration with LlamaIndex by exposing
+        Memoric as a storage backend.
+
+        Returns:
+            Storage context object compatible with LlamaIndex
+
+        Example:
+            >>> from memoric import Memoric
+            >>> mem = Memoric()
+            >>> storage_context = mem.as_storage_context()
+            >>> # Use with LlamaIndex
+        """
+        try:
+            from ..integrations.llamaindex import MemoricStorageContext
+            self._ensure_initialized()
+            return MemoricStorageContext(memoric=self)
+        except ImportError as e:
+            raise ImportError(
+                "LlamaIndex integration not available. "
+                "Install with: pip install llama-index"
+            ) from e

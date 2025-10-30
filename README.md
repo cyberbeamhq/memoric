@@ -116,41 +116,52 @@ pip install memoric[dev]      # Development tools
 
 ## ⚡ Quick Start
 
-### 1️⃣ Create Configuration File
+### 1️⃣ Create Configuration File (Optional)
 
-Create a `config.yaml` file:
+Create a `config.yaml` file to customize behavior:
 
 ```yaml
-database:
-  engine: postgres
-  host: localhost
-  port: 5432
-  user: memoric
-  password: your_secure_password
-  db: memoric_db
+# Storage configuration
+storage:
+  tiers:
+    - name: short_term
+      backend: sqlite
+      dsn: "sqlite:///memoric_short.db"
+      expiry_days: 7
+    - name: mid_term
+      backend: sqlite
+      dsn: "sqlite:///memoric_mid.db"
+      expiry_days: 90
+    - name: long_term
+      backend: postgres
+      dsn: "postgresql://user:pass@localhost/memoric"
+      expiry_days: 365
 
-metadata_agent:
-  model: gpt-4o-mini
-  extract_fields: [topic, category, entities, sentiment, importance]
+# Metadata enrichment (requires OpenAI API key)
+metadata:
+  enrichment:
+    model: gpt-4o-mini
+    enabled: true
 
-tiers:
-  short_term:
-    expiry_days: 7
-  mid_term:
-    expiry_days: 90
-    trim: true
-  long_term:
-    expiry_days: 365
-    cluster_by: ["topic", "entities"]
-
-retrieval:
+# Memory retrieval settings
+recall:
   scope: thread  # Options: thread | topic | user | global
-  fallback: topic
-  scoring:
-    importance: 0.6
-    recency: 0.3
-    repetition: 0.1
+  default_top_k: 10
+  fallback_order: [thread, topic, user]
+
+# Scoring weights
+scoring:
+  importance_weight: 0.6
+  recency_weight: 0.3
+  repetition_weight: 0.1
+
+# Privacy settings
+privacy:
+  enforce_user_scope: true
+  allow_shared_namespace: false
 ```
+
+> **Note:** Memoric works out-of-the-box with SQLite. The config file is optional for customization.
 
 ### 2️⃣ Initialize Memoric
 
@@ -168,58 +179,60 @@ mem = Memoric()
 
 ```python
 # Save a user message with automatic metadata extraction
-mem.save(
+memory_id = mem.save(
     user_id="U-123",
     thread_id="T-Refunds",
-    session_id="S-456",
-    message="I still haven't received my refund for order #1049.",
-    role="user"
+    content="I still haven't received my refund for order #1049.",
+    session_id="S-456"
 )
+print(f"Memory saved with ID: {memory_id}")
 ```
 
 **What happens automatically:**
-- 🤖 Message enriched with AI-extracted metadata
-- 📊 Routed to appropriate tier (e.g., `short_term`)
+- 🤖 Content enriched with AI-extracted metadata (topic, category, entities, importance)
+- 📊 Routed to appropriate tier based on policies (e.g., `short_term`)
 - 💾 Stored in PostgreSQL with all metadata
 - 🔍 Indexed for fast retrieval
 
-### 4️⃣ Retrieve Context
+### 4️⃣ Retrieve Memories
 
 ```python
-# Query relevant memories
-context = mem.retrieve(
+# Retrieve relevant memories
+memories = mem.retrieve(
     user_id="U-123",
     thread_id="T-Refunds",
-    query="refund status",
-    max_results=10
+    top_k=10
 )
 
-print(context)
+# Display results
+for memory in memories:
+    print(f"Score: {memory['_score']}, Content: {memory['content']}")
 ```
 
 **Example Output:**
 
-```json
-{
-  "thread_context": [
-    "User: I still haven't received my refund for order #1049.",
-    "Agent: We've escalated your case to finance.",
-    "User: It's been two weeks now, any updates?"
-  ],
-  "related_history": [
-    "User had similar refund issues in Jan 2024 (Order #1082)."
-  ],
-  "metadata": {
-    "topic": "refunds",
-    "category": "customer_support",
-    "importance": "high",
-    "thread_id": "T-Refunds",
-    "user_id": "U-123"
-  }
-}
+```python
+[
+    {
+        "id": 42,
+        "user_id": "U-123",
+        "thread_id": "T-Refunds",
+        "content": "I still haven't received my refund for order #1049.",
+        "metadata": {
+            "topic": "refunds",
+            "category": "customer_support",
+            "importance": "high",
+            "entities": ["order #1049"]
+        },
+        "tier": "short_term",
+        "_score": 85.3,
+        "created_at": "2025-10-30T10:30:00Z"
+    },
+    # ... more memories
+]
 ```
 
-This structured JSON can be injected directly into your LLM's context window.
+The list of memories can be formatted and injected into your LLM's context window.
 
 ---
 
@@ -233,8 +246,7 @@ graph TD
     B --> C[Memory Router]
     C --> D[PostgreSQL Store]
     D --> E[Retriever + Scorer]
-    E --> F[Context Assembler]
-    F --> G[LLM/Agent]
+    E --> F[LLM/Agent]
 
     style A fill:#e1f5ff
     style B fill:#fff4e1
@@ -242,7 +254,6 @@ graph TD
     style D fill:#e1ffe1
     style E fill:#f5e1ff
     style F fill:#ffe1e1
-    style G fill:#e1f5ff
 ```
 
 </div>
@@ -252,10 +263,10 @@ graph TD
 | Component | Purpose | Technology |
 |-----------|---------|------------|
 | **Metadata Agent** | AI-powered metadata extraction | OpenAI API / Custom LLM |
-| **Memory Router** | Policy-driven tier assignment | Rule engine (YAML) |
+| **Memory Router** | Policy-driven tier assignment | Rule engine (YAML config) |
 | **PostgreSQL Store** | Persistent, indexed storage | PostgreSQL + SQLAlchemy |
-| **Retriever** | Deterministic memory search | Metadata + scoring |
-| **Context Assembler** | Structured context building | JSON formatting |
+| **Retriever** | Deterministic memory search | Metadata filtering + scoring |
+| **Scorer** | Rank memories by importance/recency | Configurable scoring engine |
 
 Each layer is **modular, configurable, and easy to extend**.
 
@@ -442,30 +453,20 @@ app = create_app(
 ### LangChain Integration
 
 ```python
-from memoric import MemoricMemory
+from memoric.integrations.langchain.memory import MemoricMemory
 from langchain.agents import AgentExecutor
 
 # Use Memoric as LangChain memory backend
-memory = MemoricMemory(config_path="config.yaml")
+memory = MemoricMemory(
+    user_id="user-123",
+    thread_id="conversation-1",
+    k=10  # Number of memories to retrieve
+)
 
 agent = AgentExecutor(
-    model="gpt-4o",
-    memory=memory
-)
-```
-
-### LlamaIndex Integration
-
-```python
-from memoric import Memoric
-from llama_index import VectorStoreIndex
-
-mem = Memoric(config_path="config.yaml")
-
-# Use as custom memory store
-index = VectorStoreIndex.from_documents(
-    documents,
-    storage_context=mem.as_storage_context()
+    llm=your_llm,
+    memory=memory,
+    # ... other config
 )
 ```
 
@@ -476,27 +477,51 @@ index = VectorStoreIndex.from_documents(
 from memoric import Memoric
 
 class MyAgent:
-    def __init__(self):
+    def __init__(self, user_id: str, thread_id: str):
         self.memory = Memoric()
+        self.user_id = user_id
+        self.thread_id = thread_id
 
-    def process(self, user_input):
-        # Retrieve context
-        context = self.memory.retrieve(
+    def process(self, user_input: str):
+        # Retrieve relevant memories
+        memories = self.memory.retrieve(
             user_id=self.user_id,
-            query=user_input
+            thread_id=self.thread_id,
+            top_k=10
         )
 
-        # Generate response with context
-        response = self.llm.generate(context + user_input)
+        # Format context for LLM
+        context = "\n".join([m["content"] for m in memories])
 
-        # Store interaction
+        # Generate response with context
+        response = self.llm.generate(f"Context:\n{context}\n\nQuery: {user_input}")
+
+        # Store the interaction
         self.memory.save(
             user_id=self.user_id,
-            message=user_input,
-            role="user"
+            thread_id=self.thread_id,
+            content=user_input
         )
 
         return response
+```
+
+### Framework-Agnostic Pattern
+
+```python
+from memoric import Memoric
+
+mem = Memoric()
+
+# Save memories
+mem.save(user_id="user-1", thread_id="chat-1", content="User question")
+mem.save(user_id="user-1", thread_id="chat-1", content="Agent response")
+
+# Retrieve for context
+memories = mem.retrieve(user_id="user-1", thread_id="chat-1", top_k=5)
+
+# Use with any LLM framework (OpenAI, Anthropic, etc.)
+context = "\n".join([m["content"] for m in memories])
 ```
 
 ---
@@ -507,32 +532,63 @@ class MyAgent:
 
 | Method | Description | Example |
 |--------|-------------|---------|
-| `mem.save()` | Store a message or event | `mem.save(user_id="U-1", message="Hello")` |
-| `mem.retrieve()` | Retrieve relevant context | `mem.retrieve(user_id="U-1", query="greeting")` |
+| `mem.save()` | Store a memory | `mem.save(user_id="U-1", content="Hello")` |
+| `mem.retrieve()` | Retrieve memories | `mem.retrieve(user_id="U-1", top_k=10)` |
 | `mem.run_policies()` | Execute tier transitions | `mem.run_policies()` |
-| `mem.inspect()` | Debug memory tiers | `mem.inspect(user_id="U-1")` |
-| `mem.promote_tier()` | Manually promote memories | `mem.promote_tier(memory_id=123, tier="long_term")` |
+| `mem.inspect()` | Debug memory system | `mem.inspect()` |
+| `mem.rebuild_clusters()` | Rebuild topic clusters | `mem.rebuild_clusters(user_id="U-1")` |
+| `mem.get_topic_clusters()` | Get topic clusters | `mem.get_topic_clusters(user_id="U-1")` |
 
-### Advanced Configuration
+### API Reference
+
+#### `save()` - Store a Memory
 
 ```python
-from memoric import Memoric, PolicyConfig
-
-# Custom policy configuration
-policy = PolicyConfig(
-    tiers={
-        "short_term": {"expiry_days": 3},
-        "mid_term": {"expiry_days": 30},
-        "long_term": {"expiry_days": 180}
-    },
-    scoring={
-        "importance": 0.7,
-        "recency": 0.2,
-        "repetition": 0.1
-    }
+memory_id = mem.save(
+    user_id="user-123",           # Required: User identifier
+    content="Meeting notes...",   # Required: Memory content
+    thread_id="thread-abc",       # Optional: Thread/conversation ID
+    session_id="session-xyz",     # Optional: Session identifier
+    metadata={"custom": "data"},  # Optional: Additional metadata
+    namespace="team-alpha"        # Optional: Namespace for multi-tenancy
 )
+# Returns: int (memory ID)
+```
 
-mem = Memoric(policy=policy)
+#### `retrieve()` - Get Memories
+
+```python
+memories = mem.retrieve(
+    user_id="user-123",                    # Filter by user
+    thread_id="thread-abc",                # Filter by thread
+    metadata_filter={"topic": "refunds"},  # Filter by metadata
+    scope="thread",                        # Scope: thread|topic|user|global
+    top_k=10,                              # Max results
+    namespace="team-alpha"                 # Filter by namespace
+)
+# Returns: List[Dict[str, Any]]
+```
+
+#### Other Methods
+
+```python
+# Run policy-based tier transitions
+mem.run_policies()
+
+# Inspect memory system state
+info = mem.inspect()
+# Returns: {"config": {...}, "db_table": "memories", "counts_by_tier": {...}}
+
+# Rebuild topic clusters for a user
+cluster_count = mem.rebuild_clusters(user_id="user-123")
+
+# Get topic clusters
+clusters = mem.get_topic_clusters(
+    user_id="user-123",
+    topic="sales",      # Optional filter
+    category="meeting", # Optional filter
+    limit=100
+)
 ```
 
 ---

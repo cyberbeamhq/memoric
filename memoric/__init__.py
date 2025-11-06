@@ -79,5 +79,5 @@ if _LANGCHAIN_AVAILABLE:
 # CLI entry point (for console_scripts)
 def cli_main():
     """Entry point for memoric CLI command."""
-    from cli import main
+    from .cli import main
     main()

@@ -1,0 +1,104 @@
+# Memoric Quickstart Configuration
+# ==================================
+#
+# This is a simplified configuration for getting started with Memoric.
+# For advanced options, see default_config.yaml
+#
+# Usage:
+#   from memoric import Memoric
+#   m = Memoric(config_path="quickstart_config.yaml")
+#
+
+# ==============================================================================
+# DATABASE - Where memories are stored
+# ==============================================================================
+
+database:
+  # SQLite for development (no setup needed)
+  dsn: "sqlite:///./memoric.db"
+
+  # OR use PostgreSQL for production
+  # dsn: "postgresql://user:pass@localhost:5432/memoric"
+
+# ==============================================================================
+# STORAGE TIERS - How memories age and migrate
+# ==============================================================================
+
+storage:
+  tiers:
+    # Recent memories (1 week)
+    - name: short_term
+      expiry_days: 7
+
+    # Medium-term memories (1 month)
+    - name: mid_term
+      expiry_days: 30
+
+    # Long-term archive (forever)
+    - name: long_term
+      # No expiry - stays here permanently
+
+# ==============================================================================
+# WRITE POLICIES - Where new memories go
+# ==============================================================================
+
+policies:
+  write:
+    # Default: all new memories start in short_term
+    - when: "always"
+      to: [short_term]
+
+# ==============================================================================
+# METADATA ENRICHMENT - AI-powered metadata extraction
+# ==============================================================================
+
+metadata:
+  enrichment:
+    enabled: true
+    model: gpt-4o-mini
+    # Requires: export OPENAI_API_KEY=sk-...
+    # Falls back to simple heuristics if not set
+
+# ==============================================================================
+# RETRIEVAL - How memories are searched and returned
+# ==============================================================================
+
+recall:
+  default_top_k: 10        # Return top 10 memories by default
+  default_scope: thread    # Search within single conversation
+
+# ==============================================================================
+# SCORING - How memories are ranked by importance
+# ==============================================================================
+
+scoring:
+  weights:
+    recency: 0.3          # How recent is the memory?
+    importance: 0.4       # How important is it?
+    frequency: 0.2        # How often accessed?
+    relevance: 0.1        # How relevant to context?
+
+# ==============================================================================
+# PRIVACY - Data isolation and security
+# ==============================================================================
+
+privacy:
+  user_isolation: true          # Enforce user data isolation
+  allow_global_scope: false     # Prevent cross-user data access
+  encrypt_content: false        # Enable encryption if needed
+
+# ==============================================================================
+# THAT'S IT!
+# ==============================================================================
+#
+# This minimal config is all you need to get started.
+# Memoric will:
+# - Create a SQLite database in the current directory
+# - Extract metadata from your memories
+# - Automatically migrate memories between tiers
+# - Rank results by importance and recency
+#
+# For advanced features, see:
+# - default_config.yaml - Full configuration options
+# - README.md - Complete documentation
+# - examples/ - Code examples

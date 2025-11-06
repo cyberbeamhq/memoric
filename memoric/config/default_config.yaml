@@ -78,37 +78,25 @@ storage:
 
 policies:
   # Write policies - where to store new memories
-  write_policies:
-    - when: "score >= 0.8"           # High importance
-      to: [long_term]
-
-    - when: "score >= 0.5"           # Medium importance
-      to: [mid_term]
-
-    - when: "score < 0.5"            # Low importance
+  # NOTE: This matches the actual implementation in memory_manager.py
+  write:
+    - when: "always"                 # Default: all memories go to short_term
       to: [short_term]
 
-  # Migration policies - move memories between tiers
-  migration_policies:
-    - from: short_term
-      to: mid_term
-      when: "age_days > 7"
+    - when: "score >= 80"            # High importance (score 0-100)
+      to: [long_term]
 
-    - from: mid_term
-      to: long_term
-      when: "age_days > 30"
+    - when: "score >= 50"            # Medium importance (score 0-100)
+      to: [mid_term]
 
-  # Trimming policies - reduce memory size
-  trimming_policies:
-    - tier: mid_term
-      when: "length > 2000"
-      action: trim
-      max_chars: 2000
+  # MIGRATION POLICIES:
+  # Migrations are configured per-tier using the 'expiry_days' field above in storage.tiers
+  # After expiry_days, memories automatically move to the next tier in the sequence
+  # Example: short_term (7 days) → mid_term (30 days) → long_term (no expiry)
 
-    - tier: long_term
-      when: "length > 1000"
-      action: trim
-      max_chars: 1000
+  # TRIMMING POLICIES:
+  # Trimming is configured per-tier using the 'trim.max_chars' field above in storage.tiers
+  # When text_processing.trimmer is enabled, content exceeding max_chars is trimmed
 
 # ==============================================================================
 # SUMMARIZATION
@@ -220,11 +208,11 @@ observability:
     port: 9090                    # Metrics endpoint port
     path: /metrics                # Metrics endpoint path
 
-  # Tracing configuration
-  tracing:
-    enabled: false
-    exporter: jaeger              # jaeger, zipkin, or none
-    endpoint: http://localhost:14268/api/traces
+  # Tracing configuration (PLANNED - Not yet implemented)
+  # tracing:
+  #   enabled: false
+  #   exporter: jaeger              # jaeger, zipkin, or none
+  #   endpoint: http://localhost:14268/api/traces
 
 # ==============================================================================
 # PERFORMANCE
@@ -235,28 +223,28 @@ performance:
   batch_size: 100                 # Process memories in batches of 100
   max_concurrent: 10              # Max concurrent operations
 
-  # Caching
-  cache:
-    enabled: true
-    ttl: 300                      # Cache TTL in seconds
-    max_size: 1000                # Max cache entries
+  # Caching (PLANNED - Not yet implemented)
+  # cache:
+  #   enabled: true
+  #   ttl: 300                      # Cache TTL in seconds
+  #   max_size: 1000                # Max cache entries
 
-  # Rate limiting
-  rate_limit:
-    enabled: false
-    requests_per_minute: 100
+  # Rate limiting (PLANNED - Not yet implemented)
+  # rate_limit:
+  #   enabled: false
+  #   requests_per_minute: 100
 
 # ==============================================================================
 # INTEGRATIONS
 # ==============================================================================
 
 integrations:
-  # Vector database for semantic search
-  vector_db:
-    enabled: false
-    provider: pinecone            # pinecone, weaviate, qdrant
-    # api_key: "..."
-    # index_name: memoric
+  # Vector database for semantic search (PLANNED - Not yet implemented)
+  # vector_db:
+  #   enabled: false
+  #   provider: pinecone            # pinecone, weaviate, qdrant
+  #   api_key: "..."
+  #   index_name: memoric
 
   # External APIs
   apis:

@@ -1,31 +1,21 @@
 """
-Hybrid Retriever for AI Agents - Best of semantic + keyword + temporal retrieval.
+Hybrid Retriever for AI Agents - DEPRECATED
 
-This module combines multiple retrieval strategies to give AI agents the most
-relevant memories:
-- Semantic similarity (meaning-based)
-- Keyword matching (exact terms)
-- Recency weighting (recent interactions)
-- Importance scoring (critical information)
-- Custom rules (domain-specific logic)
+⚠️ DEPRECATION WARNING:
+This class is deprecated. Use the simpler Memory class instead:
 
-The hybrid approach ensures agents get comprehensive context even when one
-retrieval method alone would miss important information.
-
-Example:
-    from memoric import Memoric
+Old way (deprecated):
     from memoric.core.hybrid_retriever import HybridRetriever
+    retriever = HybridRetriever(db=db)
+    results = retriever.retrieve_for_agent(query="...", user_id="...")
 
-    m = Memoric()
-    retriever = HybridRetriever(db=m.db)
+New way (recommended):
+    from memoric import Memory
+    memory = Memory(user_id="...")
+    results = memory.search("...")
 
-    # Intelligent retrieval for AI agent
-    context = retriever.retrieve_for_agent(
-        query="What were the action items from last meeting?",
-        user_id="agent_1",
-        thread_id="conv_42",
-        strategy="balanced"  # or "semantic_heavy", "keyword_heavy", "recent_first"
-    )
+The Memory class includes hybrid retrieval by default.
+See examples/simple.py for migration guide.
 """
 
 from __future__ import annotations
@@ -130,6 +120,15 @@ class HybridRetriever:
             )
         else:
             self.semantic = None
+
+        # Deprecation warning
+        import warnings
+        warnings.warn(
+            "HybridRetriever is deprecated and will be removed in a future version. "
+            "Please use the simpler Memory class instead: from memoric import Memory",
+            DeprecationWarning,
+            stacklevel=2
+        )
 
         logger.info(f"Hybrid retriever initialized (semantic: {enable_semantic})")
 

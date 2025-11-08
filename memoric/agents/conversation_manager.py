@@ -1,38 +1,24 @@
 """
-Conversation Manager for AI Agents - Simple, powerful memory management.
+Conversation Manager for AI Agents - DEPRECATED
 
-This module provides a high-level interface for AI agents to manage conversations
-with automatic memory storage, intelligent retrieval, and context assembly.
+⚠️ DEPRECATION WARNING:
+This class is deprecated and will be removed in a future version.
+Please use the simpler Memory class instead:
 
-This is the easiest way for AI agents to use Memoric - just create a
-ConversationManager and let it handle all the complexity.
+Old way (deprecated):
+    from memoric.agents import ConversationManager
+    manager = ConversationManager(agent_id="bot")
+    manager.add_message(content="...", role="user")
+    context = manager.get_context(query="...")
 
-Example:
-    from memoric.agents.conversation_manager import ConversationManager
+New way (recommended):
+    from memoric import Memory
+    memory = Memory(user_id="bot")
+    memory.add("...")
+    context = memory.get_context("...")
 
-    # Initialize for your AI agent
-    manager = ConversationManager(agent_id="customer_support_bot")
-
-    # Save user message
-    manager.add_message(
-        content="I need help with my order #12345",
-        role="user",
-        thread_id="conv_789"
-    )
-
-    # Get relevant context for AI response
-    context = manager.get_context(
-        query="What is the user asking about?",
-        thread_id="conv_789",
-        max_tokens=2000
-    )
-
-    # Save AI response
-    manager.add_message(
-        content="I'll help you with order #12345. Let me look that up.",
-        role="assistant",
-        thread_id="conv_789"
-    )
+The new Memory class is simpler, faster, and easier to use.
+See examples/simple.py for migration guide.
 """
 
 from __future__ import annotations
@@ -104,6 +90,15 @@ class ConversationManager:
             self._embedding_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="embedding")
         else:
             self._embedding_executor = None
+
+        # Deprecation warning
+        import warnings
+        warnings.warn(
+            "ConversationManager is deprecated and will be removed in a future version. "
+            "Please use the simpler Memory class instead: from memoric import Memory",
+            DeprecationWarning,
+            stacklevel=2
+        )
 
         logger.info(
             f"Conversation manager initialized for agent '{agent_id}'",

@@ -1,29 +1,37 @@
 """
-Memoric - A tiered, policy-driven memory management system.
+Memoric - Simple Memory Management for AI Agents
 
-Quick Start:
-    from memoric import Memoric
+Quick Start (Recommended):
+    from memoric import Memory
 
-    m = Memoric()
-    m.save(user_id="user1", content="Meeting notes...")
-    results = m.retrieve(user_id="user1", query="meetings")
+    # Initialize
+    memory = Memory(user_id="my_agent")
 
-Advanced Usage:
+    # Save memories
+    memory.add("User prefers email communication")
+
+    # Search by meaning
+    results = memory.search("How does user like to communicate?")
+
+    # Get formatted context for AI
+    context = memory.get_context("User asked about communication")
+
+Advanced Usage (for custom needs):
     from memoric.core import MemoryManager, Retriever
-    from memoric.utils import LLMSummarizer, create_trimmer
+    from memoric.providers import PineconeVectorStore, QdrantVectorStore
     from memoric.db import PostgresConnector
-    from memoric.agents import MetadataAgent
 
 Configuration:
-    See config/default_config.yaml for all available options.
+    See examples/ directory for common patterns.
 """
 
 from __future__ import annotations
 
-# Legacy import (backward compatibility)
-from .core.memory_manager import Memoric
+# Simple API (recommended for most users)
+from .memory import Memory
 
-# Modern imports (recommended)
+# Legacy imports (backward compatibility)
+from .core.memory_manager import Memoric
 from .core import MemoryManager
 from .core import Retriever, PolicyExecutor, SimpleClustering, Cluster
 from .core.policy_config import PolicyConfig, TierConfig, ScoringConfig, RetrievalConfig
@@ -49,10 +57,12 @@ except ImportError:
 __version__ = "0.1.0"
 
 __all__ = [
+    # Simple API (recommended - start here!)
+    "Memory",
     # Legacy (backward compatibility)
     "Memoric",
-    # Modern API (recommended)
     "MemoryManager",
+    # Advanced (for custom needs)
     "Retriever",
     "PolicyExecutor",
     "SimpleClustering",
@@ -64,7 +74,6 @@ __all__ = [
     "LLMSummarizer",
     "ScoringEngine",
     "ScoringWeights",
-    # New features
     "PolicyConfig",
     "TierConfig",
     "ScoringConfig",

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import yaml
+
+from .config_validator import validate_config
 
 
 def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
@@ -47,10 +50,45 @@ class ConfigLoader:
         self.user_path = user_path
         self.runtime_overrides = runtime_overrides or {}
 
-    def load(self) -> Dict[str, Any]:
+    def load(self, validate: bool = True) -> Dict[str, Any]:
+        """
+        Load and merge configuration.
+
+        Args:
+            validate: Run validation on final config (default: True)
+
+        Returns:
+            Merged configuration dictionary
+        """
         default_cfg = load_yaml(self.default_path)
         user_cfg = load_yaml(self.user_path) if self.user_path else {}
         merged = _deep_merge(default_cfg, user_cfg)
         if self.runtime_overrides:
             merged = _deep_merge(merged, self.runtime_overrides)
+
+        # Validate configuration
+        if validate:
+            # Check if validation should be strict
+            strict = os.getenv("MEMORIC_STRICT_CONFIG", "false").lower() == "true"
+
+            result = validate_config(merged, strict=strict)
+
+            # Log validation results
+            if result.errors:
+                import logging
+                logger = logging.getLogger(__name__)
+                for error in result.errors:
+                    logger.error(f"Config error: {error}")
+
+                # Raise on errors
+                if strict or not result.is_valid:
+                    error_list = "\n  ".join(result.errors)
+                    raise ValueError(f"Configuration validation failed:\n  {error_list}")
+
+            if result.warnings:
+                import logging
+                logger = logging.getLogger(__name__)
+                for warning in result.warnings:
+                    logger.warning(f"Config warning: {warning}")
+
         return merged

@@ -206,7 +206,7 @@ def with_timeout(seconds: float):
     Decorator to add timeout to function.
 
     Args:
-        seconds: Timeout in seconds
+        seconds: Timeout in seconds (rounded up to nearest integer on Unix due to signal.alarm limitation)
 
     Example:
         @with_timeout(5.0)
@@ -214,12 +214,15 @@ def with_timeout(seconds: float):
             # Operation that might hang
             pass
 
-    Note: Uses signal on Unix, threading on Windows
+    Note:
+        - Uses signal on Unix (integer seconds only, rounds up)
+        - Uses threading on Windows (supports float seconds)
     """
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> T:
             import sys
+            import math
 
             # Use signal on Unix systems
             if sys.platform != 'win32':
@@ -229,7 +232,8 @@ def with_timeout(seconds: float):
                     raise TimeoutError(f"Function {func.__name__} timed out after {seconds}s")
 
                 old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-                signal.alarm(int(seconds))
+                # signal.alarm only accepts integers, round up to ensure timeout >= requested
+                signal.alarm(math.ceil(seconds))
 
                 try:
                     return func(*args, **kwargs)

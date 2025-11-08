@@ -95,6 +95,7 @@ class HybridRetriever:
         self,
         *,
         db: PostgresConnector,
+        vector_store: Optional[Any] = None,
         scoring_config: Optional[dict] = None,
         enable_semantic: bool = True,
         embedding_provider: Optional[str] = None,  # "openai", "local", or None for auto
@@ -104,6 +105,7 @@ class HybridRetriever:
 
         Args:
             db: Database connector
+            vector_store: Vector store provider (Pinecone, Qdrant, etc.)
             scoring_config: Configuration for scoring engine
             enable_semantic: Enable semantic search (requires embeddings)
             embedding_provider: Which embedding provider to use
@@ -123,6 +125,7 @@ class HybridRetriever:
 
             self.semantic = SemanticSearchEngine(
                 db=db,
+                vector_store=vector_store,  # Pass vector store through
                 embedding_provider=provider
             )
         else:

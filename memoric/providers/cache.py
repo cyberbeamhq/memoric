@@ -121,7 +121,22 @@ class RedisCacheProvider(CacheProvider):
         value: Any,
         ttl: Optional[int] = None,
     ) -> bool:
-        """Set value in Redis."""
+        """
+        Set value in Redis.
+
+        Security Warning:
+            For non-JSON serializable objects, this method uses pickle which is unsafe
+            with untrusted data. Only cache trusted data or use JSON-serializable types
+            (dict, list, str, int, float, bool) for production use.
+
+        Args:
+            key: Cache key
+            value: Value to cache (prefer JSON-serializable types)
+            ttl: Time-to-live in seconds
+
+        Returns:
+            True if successful
+        """
         try:
             # Serialize value
             if isinstance(value, (dict, list)):
@@ -129,6 +144,8 @@ class RedisCacheProvider(CacheProvider):
             elif isinstance(value, (str, int, float, bool)):
                 serialized = str(value)
             else:
+                # WARNING: Using pickle for non-JSON types (security risk with untrusted data)
+                logger.debug(f"Using pickle serialization for {type(value).__name__} (prefer JSON types)")
                 serialized = pickle.dumps(value)
 
             return self.client.set(

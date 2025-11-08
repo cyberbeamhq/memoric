@@ -61,9 +61,11 @@ class ConversationManager:
         *,
         agent_id: str,
         memoric: Optional[Memoric] = None,
+        vector_store: Optional[Any] = None,
         enable_semantic_search: bool = True,
         enable_summarization: bool = True,
         default_strategy: str = "balanced",
+        async_embeddings: bool = True,
     ):
         """
         Initialize conversation manager.
@@ -71,19 +73,23 @@ class ConversationManager:
         Args:
             agent_id: Unique identifier for this AI agent
             memoric: Memoric instance (creates new if None)
+            vector_store: Vector store provider (Pinecone, Qdrant, etc.)
             enable_semantic_search: Enable semantic/vector search
             enable_summarization: Enable smart summarization
             default_strategy: Default retrieval strategy
+            async_embeddings: Generate embeddings asynchronously (non-blocking)
         """
         self.agent_id = agent_id
         self.memoric = memoric or Memoric()
+        self.async_embeddings = async_embeddings
 
         # Ensure database is initialized
         self.memoric._ensure_initialized()
 
-        # Initialize hybrid retriever
+        # Initialize hybrid retriever with vector store
         self.retriever = HybridRetriever(
             db=self.memoric.db,
+            vector_store=vector_store,
             enable_semantic=enable_semantic_search
         )
 
@@ -92,11 +98,19 @@ class ConversationManager:
 
         self.default_strategy = default_strategy
 
+        # Thread pool for async embedding generation
+        if async_embeddings and enable_semantic_search:
+            from concurrent.futures import ThreadPoolExecutor
+            self._embedding_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="embedding")
+        else:
+            self._embedding_executor = None
+
         logger.info(
             f"Conversation manager initialized for agent '{agent_id}'",
             extra={
                 'semantic_search': enable_semantic_search,
                 'summarization': enable_summarization,
+                'async_embeddings': async_embeddings,
             }
         )
 
@@ -146,12 +160,37 @@ class ConversationManager:
             }
         )
 
-        # Generate embedding for semantic search (async in background would be better)
+        # Generate embedding for semantic search
         if self.retriever.semantic_enabled:
-            try:
-                self.retriever.semantic.embed_and_store(memory_id, content)
-            except Exception as e:
-                logger.warning(f"Failed to generate embedding: {e}")
+            metadata_for_embed = {
+                "user_id": self.agent_id,
+                "thread_id": thread_id,
+                "content_preview": content[:100]
+            }
+
+            if self._embedding_executor:
+                # Async: Submit to background thread (non-blocking)
+                def embed_in_background():
+                    try:
+                        self.retriever.semantic.embed_and_store(
+                            memory_id,
+                            content,
+                            metadata=metadata_for_embed
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to generate embedding in background: {e}")
+
+                self._embedding_executor.submit(embed_in_background)
+            else:
+                # Sync: Generate immediately (blocking)
+                try:
+                    self.retriever.semantic.embed_and_store(
+                        memory_id,
+                        content,
+                        metadata=metadata_for_embed
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to generate embedding: {e}")
 
         return memory_id
 

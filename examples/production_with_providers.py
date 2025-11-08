@@ -191,11 +191,21 @@ class ProductionMemorySystem:
             return self._keyword_fallback(query, user_id, top_k)
 
     def _generate_embedding(self, text: str) -> List[float]:
-        """Generate embedding using OpenAI."""
-        # This would use your embedding provider
-        # For now, return mock embedding
-        import random
-        return [random.random() for _ in range(1536)]
+        """Generate embedding using configured provider."""
+        # Initialize embedder on first use
+        if not hasattr(self, 'embedder'):
+            from memoric.core.semantic_search import OpenAIEmbedding
+            self.embedder = OpenAIEmbedding()
+
+        embedding = self.embedder.embed(text)
+
+        if not embedding:
+            raise RuntimeError(
+                "Failed to generate embedding. Please ensure OPENAI_API_KEY is set or "
+                "initialize ProductionMemorySystem with a custom embedding provider."
+            )
+
+        return embedding
 
     def _keyword_fallback(
         self,

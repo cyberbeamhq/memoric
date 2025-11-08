@@ -209,15 +209,20 @@ class SemanticSearchEngine:
     """
     Semantic search engine for finding memories by meaning.
 
-    Provides vector/semantic search capabilities alongside traditional
-    keyword-based retrieval, enabling AI agents to find relevant context
-    based on conceptual similarity rather than exact matches.
+    Provides vector/semantic search capabilities using external vector stores
+    (Pinecone, Qdrant, etc.) for scalable similarity search.
+
+    This class orchestrates:
+    - Embedding generation (OpenAI, local, etc.)
+    - Vector storage (via VectorStoreProvider)
+    - Similarity search with fallback strategies
     """
 
     def __init__(
         self,
         *,
         db: PostgresConnector,
+        vector_store: Optional[Any] = None,  # VectorStoreProvider
         embedding_provider: Optional[EmbeddingProvider] = None,
         fallback_to_keyword: bool = True,
     ):
@@ -225,12 +230,25 @@ class SemanticSearchEngine:
         Initialize semantic search engine.
 
         Args:
-            db: Database connector
+            db: Database connector (for fallback keyword search)
+            vector_store: Vector store provider (Pinecone, Qdrant, etc.)
+                         If None, uses in-memory store (development only)
             embedding_provider: Provider for generating embeddings (auto-detects if None)
             fallback_to_keyword: Fall back to keyword search if embeddings unavailable
         """
         self.db = db
         self.fallback_to_keyword = fallback_to_keyword
+
+        # Initialize vector store
+        if vector_store is None:
+            logger.warning(
+                "No vector store provided. Using in-memory store (NOT for production). "
+                "For production, use: PineconeVectorStore or QdrantVectorStore"
+            )
+            from ..providers.vector_stores import InMemoryVectorStore
+            self.vector_store = InMemoryVectorStore()
+        else:
+            self.vector_store = vector_store
 
         # Auto-detect embedding provider
         if embedding_provider is None:
@@ -238,60 +256,69 @@ class SemanticSearchEngine:
             if os.getenv("OPENAI_API_KEY"):
                 self.embedder = OpenAIEmbedding()
             else:
+                logger.warning(
+                    "No OpenAI API key found. Using local embeddings (slower, lower quality). "
+                    "Set OPENAI_API_KEY for better results."
+                )
                 self.embedder = LocalEmbedding()
         else:
             self.embedder = embedding_provider
 
-        logger.info("Semantic search engine initialized")
+        logger.info(
+            f"Semantic search initialized with {type(self.vector_store).__name__} "
+            f"and {type(self.embedder).__name__}"
+        )
 
     def embed_and_store(
         self,
         memory_id: int,
         content: str,
+        metadata: Optional[Dict[str, Any]] = None,
         force: bool = False
     ) -> bool:
         """
-        Generate and store embedding for a memory.
+        Generate and store embedding for a memory in vector store.
 
         Args:
             memory_id: Memory ID
             content: Memory content to embed
+            metadata: Optional metadata to store with vector
             force: Force re-embedding even if exists
 
         Returns:
-            True if embedding generated and stored
+            True if embedding generated and stored successfully
         """
-        # Check if embedding already exists
-        if not force:
-            memories = self.db.get_memories(limit=1)
-            # Check if embeddings column exists
-            if memories and 'embedding' in memories[0]:
-                memory = self.db.get_memories(limit=1)
-                if memory and memory[0].get('id') == memory_id and memory[0].get('embedding'):
+        try:
+            # Check if embedding already exists (unless force=True)
+            if not force:
+                existing = self.vector_store.get(str(memory_id))
+                if existing:
                     logger.debug(f"Embedding already exists for memory {memory_id}")
                     return True
 
-        # Generate embedding
-        embedding = self.embedder.embed(content)
+            # Generate embedding
+            embedding = self.embedder.embed(content)
 
-        if not embedding:
-            logger.warning(f"Failed to generate embedding for memory {memory_id}")
-            return False
+            if not embedding:
+                logger.warning(f"Failed to generate embedding for memory {memory_id}")
+                return False
 
-        # Store embedding in metadata for now (TODO: add embeddings column)
-        try:
-            current_memory = self.db.get_memories(limit=1000)
-            for mem in current_memory:
-                if mem['id'] == memory_id:
-                    metadata = mem.get('metadata', {})
-                    metadata['_embedding'] = embedding
-                    self.db.update_metadata(memory_id=memory_id, new_metadata=metadata)
-                    logger.debug(f"Stored embedding for memory {memory_id}")
-                    return True
+            # Store in vector database
+            success = self.vector_store.upsert(
+                id=str(memory_id),
+                vector=embedding,
+                metadata=metadata or {"content_preview": content[:100]}
+            )
 
-            return False
+            if success:
+                logger.debug(f"Stored embedding for memory {memory_id} in vector store")
+            else:
+                logger.error(f"Failed to store embedding for memory {memory_id}")
+
+            return success
+
         except Exception as e:
-            logger.error(f"Failed to store embedding: {e}")
+            logger.error(f"Error in embed_and_store for memory {memory_id}: {e}")
             return False
 
     def search(
@@ -305,7 +332,7 @@ class SemanticSearchEngine:
         min_similarity: float = 0.0,
     ) -> List[Dict[str, Any]]:
         """
-        Semantic search for memories.
+        Semantic search for memories using vector store.
 
         Args:
             query: Search query (natural language)
@@ -329,55 +356,81 @@ class SemanticSearchEngine:
                 logger.error("Semantic search failed and fallback disabled")
                 return []
 
-        # Get candidate memories
-        memories = self.db.get_memories(
-            user_id=user_id,
-            thread_id=thread_id,
-            limit=1000  # Get more candidates for ranking
-        )
+        # Search vector store for similar embeddings
+        try:
+            # Build filter for vector store
+            vector_filter = {}
+            if user_id:
+                vector_filter['user_id'] = user_id
+            if thread_id:
+                vector_filter['thread_id'] = thread_id
 
-        if not memories:
-            return []
-
-        # Compute similarities and rank
-        scored_memories = []
-        for memory in memories:
-            metadata = memory.get('metadata', {})
-            memory_embedding = metadata.get('_embedding')
-
-            if not memory_embedding:
-                # No embedding stored, skip or use keyword fallback
-                if hybrid_alpha < 1.0:
-                    # Use keyword score
-                    keyword_score = self._keyword_score(query, memory.get('content', ''))
-                    memory['_semantic_score'] = 0.0
-                    memory['_keyword_score'] = keyword_score
-                    memory['_hybrid_score'] = (1 - hybrid_alpha) * keyword_score
-                    scored_memories.append(memory)
-                continue
-
-            # Compute semantic similarity
-            similarity = cosine_similarity(query_embedding, memory_embedding)
-
-            if similarity < min_similarity:
-                continue
-
-            # Compute hybrid score
-            keyword_score = self._keyword_score(query, memory.get('content', ''))
-            hybrid_score = (
-                hybrid_alpha * similarity +
-                (1 - hybrid_alpha) * keyword_score
+            # Search vector store (get more candidates for hybrid ranking)
+            vector_results = self.vector_store.search(
+                vector=query_embedding,
+                top_k=top_k * 3,  # Get 3x candidates for hybrid re-ranking
+                filter=vector_filter if vector_filter else None
             )
 
-            memory['_semantic_score'] = similarity
-            memory['_keyword_score'] = keyword_score
-            memory['_hybrid_score'] = hybrid_score
-            scored_memories.append(memory)
+            if not vector_results:
+                logger.info("No results from vector store, trying keyword fallback")
+                if self.fallback_to_keyword and hybrid_alpha < 1.0:
+                    return self._keyword_search(query, user_id, thread_id, top_k)
+                return []
 
-        # Sort by hybrid score and return top_k
-        scored_memories.sort(key=lambda m: m.get('_hybrid_score', 0), reverse=True)
+            # Extract memory IDs and scores from vector results
+            memory_ids = [int(result['id']) for result in vector_results]
+            vector_scores = {int(result['id']): result.get('score', 0.0) for result in vector_results}
 
-        return scored_memories[:top_k]
+            # Fetch full memory details from database
+            memories = []
+            for memory_id in memory_ids:
+                # Get memory from database
+                memory_list = self.db.get_memories(memory_id=memory_id, limit=1)
+                if memory_list:
+                    memories.append(memory_list[0])
+
+            if not memories:
+                logger.warning("Vector search succeeded but couldn't fetch memories from DB")
+                return []
+
+            # Apply hybrid scoring
+            scored_memories = []
+            for memory in memories:
+                memory_id = memory.get('id')
+                semantic_score = vector_scores.get(memory_id, 0.0)
+
+                # Filter by minimum similarity
+                if semantic_score < min_similarity:
+                    continue
+
+                # Compute keyword score for hybrid ranking
+                keyword_score = 0.0
+                if hybrid_alpha < 1.0:
+                    keyword_score = self._keyword_score(query, memory.get('content', ''))
+
+                # Compute hybrid score
+                hybrid_score = (
+                    hybrid_alpha * semantic_score +
+                    (1 - hybrid_alpha) * keyword_score
+                )
+
+                memory['_semantic_score'] = semantic_score
+                memory['_keyword_score'] = keyword_score
+                memory['_hybrid_score'] = hybrid_score
+                scored_memories.append(memory)
+
+            # Sort by hybrid score and return top_k
+            scored_memories.sort(key=lambda m: m.get('_hybrid_score', 0), reverse=True)
+
+            return scored_memories[:top_k]
+
+        except Exception as e:
+            logger.error(f"Vector search failed: {e}")
+            if self.fallback_to_keyword:
+                logger.info("Falling back to keyword search")
+                return self._keyword_search(query, user_id, thread_id, top_k)
+            return []
 
     def _keyword_score(self, query: str, content: str) -> float:
         """

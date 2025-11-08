@@ -242,11 +242,37 @@ def create_auth_router(
 
         **Errors:**
         - 401: Invalid credentials or inactive account
+        - 423: Account locked due to too many failed attempts
+        - 429: Too many login attempts (rate limited)
         - 500: Server error
         """
         ip_address = http_request.client.host if http_request.client else None
         user_agent = http_request.headers.get("user-agent")
 
+        # Check if account is locked
+        if user_manager.is_account_locked(req.username):
+            logger.warning(
+                "Login attempt on locked account",
+                extra={"username": req.username, "ip": ip_address},
+            )
+
+            # Audit log locked account attempt
+            if audit_logger:
+                audit_logger.log_auth_event(
+                    event_type=AuditEventType.AUTH_LOGIN_FAILED,
+                    username=req.username,
+                    success=False,
+                    error_message="Account locked",
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                )
+
+            raise HTTPException(
+                status_code=status.HTTP_423_LOCKED,
+                detail="Account locked due to too many failed login attempts. Please try again later or contact support.",
+            )
+
+        # Authenticate user
         user = user_manager.authenticate_user(
             username=req.username,
             password=req.password,
@@ -258,6 +284,22 @@ def create_auth_router(
                 extra={"username": req.username},
             )
 
+            # Record failed login attempt
+            user_manager.record_failed_login(req.username)
+
+            # Check failed attempts and lock if threshold exceeded
+            failed_attempts = user_manager.get_failed_login_attempts(req.username)
+            MAX_FAILED_ATTEMPTS = 5  # Configurable threshold
+
+            if failed_attempts >= MAX_FAILED_ATTEMPTS:
+                # Lock the account for 15 minutes
+                user_manager.lock_account(req.username, duration_minutes=15)
+
+                logger.warning(
+                    "Account locked due to failed attempts",
+                    extra={"username": req.username, "failed_attempts": failed_attempts},
+                )
+
             # Audit log failed login
             if audit_logger:
                 audit_logger.log_auth_event(
@@ -267,6 +309,7 @@ def create_auth_router(
                     error_message="Invalid credentials",
                     ip_address=ip_address,
                     user_agent=user_agent,
+                    metadata={"failed_attempts": failed_attempts},
                 )
 
             raise HTTPException(
@@ -274,6 +317,9 @@ def create_auth_router(
                 detail="Invalid credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+
+        # Clear failed login attempts on successful login
+        user_manager.clear_failed_login_attempts(req.username)
 
         # Create JWT token
         user_roles = [Role(r) for r in user.get("roles", [])]

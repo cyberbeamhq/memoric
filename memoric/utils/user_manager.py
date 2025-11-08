@@ -7,7 +7,7 @@ This module provides user CRUD operations and integrates with the AuthService.
 from __future__ import annotations
 
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import and_, insert, select, update
@@ -419,6 +419,208 @@ class UserManager:
                 conn.execute(stmt)
         except SQLAlchemyError as e:
             logger.error(f"Failed to update last login: {e}")
+
+    def record_failed_login(self, username: str) -> None:
+        """
+        Record a failed login attempt for a user.
+
+        Args:
+            username: Username or email that failed login
+        """
+        try:
+            with self.engine.begin() as conn:
+                # Get current failed attempts
+                stmt = select(
+                    self.users_table.c.id,
+                    self.users_table.c.failed_login_attempts
+                ).where(
+                    (self.users_table.c.username == username) |
+                    (self.users_table.c.email == username)
+                )
+                result = conn.execute(stmt)
+                row = result.first()
+
+                if row:
+                    user_id, current_attempts = row
+                    new_attempts = current_attempts + 1
+
+                    # Update failed attempts count
+                    update_stmt = (
+                        update(self.users_table)
+                        .where(self.users_table.c.id == user_id)
+                        .values(
+                            failed_login_attempts=new_attempts,
+                            updated_at=datetime.now(timezone.utc)
+                        )
+                    )
+                    conn.execute(update_stmt)
+
+                    logger.info(
+                        "Failed login attempt recorded",
+                        extra={"username": username, "attempts": new_attempts}
+                    )
+
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to record failed login: {e}")
+
+    def is_account_locked(self, username: str) -> bool:
+        """
+        Check if account is locked due to failed login attempts.
+
+        Args:
+            username: Username or email to check
+
+        Returns:
+            True if account is locked, False otherwise
+        """
+        try:
+            with self.engine.connect() as conn:
+                stmt = select(self.users_table.c.locked_until).where(
+                    and_(
+                        (self.users_table.c.username == username) |
+                        (self.users_table.c.email == username),
+                        self.users_table.c.is_active == True
+                    )
+                )
+                result = conn.execute(stmt)
+                row = result.first()
+
+                if row and row[0]:
+                    locked_until = row[0]
+                    # Check if still locked
+                    if datetime.now(timezone.utc) < locked_until:
+                        logger.warning(
+                            "Account is locked",
+                            extra={"username": username, "locked_until": locked_until.isoformat()}
+                        )
+                        return True
+                    else:
+                        # Lock expired, clear it
+                        self.unlock_account(username)
+
+                return False
+
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to check account lock: {e}")
+            return False
+
+    def lock_account(self, username: str, duration_minutes: int = 15) -> None:
+        """
+        Lock an account for a specified duration.
+
+        Args:
+            username: Username or email to lock
+            duration_minutes: Duration of lockout in minutes
+        """
+        try:
+            with self.engine.begin() as conn:
+                locked_until = datetime.now(timezone.utc) + timedelta(minutes=duration_minutes)
+
+                stmt = (
+                    update(self.users_table)
+                    .where(
+                        (self.users_table.c.username == username) |
+                        (self.users_table.c.email == username)
+                    )
+                    .values(
+                        locked_until=locked_until,
+                        updated_at=datetime.now(timezone.utc)
+                    )
+                )
+                conn.execute(stmt)
+
+                logger.warning(
+                    "Account locked",
+                    extra={
+                        "username": username,
+                        "locked_until": locked_until.isoformat(),
+                        "duration_minutes": duration_minutes
+                    }
+                )
+
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to lock account: {e}")
+
+    def unlock_account(self, username: str) -> None:
+        """
+        Unlock an account and reset failed login attempts.
+
+        Args:
+            username: Username or email to unlock
+        """
+        try:
+            with self.engine.begin() as conn:
+                stmt = (
+                    update(self.users_table)
+                    .where(
+                        (self.users_table.c.username == username) |
+                        (self.users_table.c.email == username)
+                    )
+                    .values(
+                        locked_until=None,
+                        failed_login_attempts=0,
+                        updated_at=datetime.now(timezone.utc)
+                    )
+                )
+                conn.execute(stmt)
+
+                logger.info("Account unlocked", extra={"username": username})
+
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to unlock account: {e}")
+
+    def clear_failed_login_attempts(self, username: str) -> None:
+        """
+        Clear failed login attempts (called on successful login).
+
+        Args:
+            username: Username or email to clear attempts for
+        """
+        try:
+            with self.engine.begin() as conn:
+                stmt = (
+                    update(self.users_table)
+                    .where(
+                        (self.users_table.c.username == username) |
+                        (self.users_table.c.email == username)
+                    )
+                    .values(
+                        failed_login_attempts=0,
+                        locked_until=None,
+                        updated_at=datetime.now(timezone.utc)
+                    )
+                )
+                conn.execute(stmt)
+
+                logger.debug("Failed login attempts cleared", extra={"username": username})
+
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to clear failed login attempts: {e}")
+
+    def get_failed_login_attempts(self, username: str) -> int:
+        """
+        Get number of failed login attempts for a user.
+
+        Args:
+            username: Username or email to check
+
+        Returns:
+            Number of failed attempts
+        """
+        try:
+            with self.engine.connect() as conn:
+                stmt = select(self.users_table.c.failed_login_attempts).where(
+                    (self.users_table.c.username == username) |
+                    (self.users_table.c.email == username)
+                )
+                result = conn.execute(stmt)
+                row = result.first()
+
+                return row[0] if row else 0
+
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to get failed login attempts: {e}")
+            return 0
 
 
 __all__ = ["UserManager"]

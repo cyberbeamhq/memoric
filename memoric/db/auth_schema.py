@@ -65,6 +65,8 @@ def create_users_table(metadata: MetaData) -> Table:
             onupdate=lambda: datetime.now(timezone.utc),
         ),
         Column("last_login_at", DateTime, nullable=True),
+        Column("failed_login_attempts", Integer, nullable=False, default=0),
+        Column("locked_until", DateTime, nullable=True),
         Column("metadata", JSONB().with_variant(JSON, "sqlite"), nullable=True),
     )
 

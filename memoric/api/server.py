@@ -278,11 +278,16 @@ def create_app(
         }
 
     @app.get("/health/detailed", tags=["health"])
-    def detailed_health_check():
+    def detailed_health_check(
+        request: Request,
+        current_user: dict = Depends(auth_dependency.get_current_user) if enable_auth else None,
+    ):
         """
         Detailed health check with all component status.
 
         **Purpose**: Monitoring and debugging
+        **Authentication**: Required if enabled
+        **Authorization**: Admin role required
         **Comprehensive**: Runs all health checks
         **Slow**: May take several seconds
 
@@ -295,6 +300,26 @@ def create_app(
 
         Use this for monitoring dashboards and debugging, not for K8s probes.
         """
+        # Require admin role if authentication is enabled
+        if enable_auth:
+            user_roles = current_user.get("roles", [])
+            if "admin" not in user_roles:
+                # Audit log access denied
+                if audit_logger:
+                    audit_logger.log_authorization_event(
+                        user_id=current_user["sub"],
+                        resource_type="health",
+                        resource_id="detailed",
+                        action="read",
+                        granted=False,
+                        reason="Non-admin user attempted to access detailed health endpoint",
+                    )
+
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Admin role required to access detailed health information",
+                )
+
         all_checks = health_checker.check_all(
             check_database=True,
             check_resources=True,

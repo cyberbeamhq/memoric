@@ -42,7 +42,7 @@ class PostgresConnector:
         pool_size: int = 5,
         max_overflow: int = 10,
         encryption_key: Optional[str] = None,
-        encrypt_content: bool = False,
+        encrypt_content: bool = True,
     ) -> None:
         self.dsn = dsn
         self.table_name = table_name

@@ -186,8 +186,10 @@ clustering:
 privacy:
   user_isolation: true            # Enforce user data isolation
   allow_global_scope: false       # Allow global (cross-user) retrieval
-  encrypt_content: false          # Encrypt memory content at rest
+  encrypt_content: true           # Encrypt memory content at rest (RECOMMENDED for production)
   # encryption_key: "..."         # Required if encrypt_content=true
+                                  # Generate key: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+                                  # Or set via environment variable: MEMORIC_ENCRYPTION_KEY
 
 # ==============================================================================
 # OBSERVABILITY
